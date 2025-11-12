@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.MainController">
+    <top>
+        <ToolBar>
+            <Button text="Add Product" onAction="#onAddProduct" />
+            <Button text="Bulk Import" />
+            <Button text="Reports" />
+        </ToolBar>
+    </top>
+    <center>
+        <VBox spacing="6">
+            <TextField fx:id="scanField" promptText="Scan barcode here" />
+            <TableView fx:id="cartTable" prefHeight="400" />
+            <HBox spacing="12">
+                <Label text="Total:" />
+                <Label fx:id="totalLabel" text="₹0.00" />
+            </HBox>
+        </VBox>
+    </center>
+</BorderPane>
