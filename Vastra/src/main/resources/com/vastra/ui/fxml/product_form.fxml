@@ -4,37 +4,234 @@
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.vastra.ui.controllers.ProductFormController">
+            fx:controller="com.vastra.ui.controllers.ProductFormController"
+            stylesheets="@../css/styles.css"
+            prefWidth="700" prefHeight="650">
+
+    <top>
+        <HBox style="-fx-background-color: #2196F3; -fx-padding: 15;" spacing="10" alignment="CENTER_LEFT">
+            <Label text="➕" style="-fx-font-size: 24px; -fx-text-fill: white;"/>
+            <VBox>
+                <Label text="Add New Product"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+                <Label text="Enter complete product details below"
+                       style="-fx-font-size: 12px; -fx-text-fill: #E3F2FD;"/>
+            </VBox>
+        </HBox>
+    </top>
 
     <center>
-        <GridPane hgap="10" vgap="12" alignment="CENTER">
-            <padding>
-                <Insets top="20" bottom="20" left="20" right="20"/>
-            </padding>
+        <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;">
+            <VBox spacing="20">
+                <padding>
+                    <Insets top="20" bottom="20" left="25" right="25"/>
+                </padding>
 
-            <Label text="Product Name:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-            <TextField fx:id="nameField" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                <!-- Basic Information -->
+                <VBox spacing="12" styleClass="card">
+                    <Label text="📦 BASIC INFORMATION" styleClass="label-header"/>
+                    <Separator/>
 
-            <Label text="Variant:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-            <TextField fx:id="variantField" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    <GridPane hgap="15" vgap="12">
+                        <Label text="Product Name*:" GridPane.rowIndex="0" GridPane.columnIndex="0"
+                               style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="nameField" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                   promptText="e.g., Men's Cotton T-Shirt" prefWidth="300"/>
 
-            <Label text="MRP (₹):" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-            <TextField fx:id="mrpField" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <Label text="Variant:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="variantField" GridPane.rowIndex="1" GridPane.columnIndex="1"
+                                   promptText="e.g., Blue, Size L"/>
 
-            <Label text="Selling Price (₹):" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-            <TextField fx:id="sellPriceField" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+                        <Label text="Category*:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                        <ComboBox fx:id="categoryCombo" GridPane.rowIndex="0" GridPane.columnIndex="3"
+                                  editable="true" promptText="Select or type" prefWidth="200">
+                            <items>
+                                <javafx.collections.FXCollections fx:factory="observableArrayList">
+                                    <String fx:value="Clothing"/>
+                                    <String fx:value="Footwear"/>
+                                    <String fx:value="Accessories"/>
+                                    <String fx:value="Electronics"/>
+                                    <String fx:value="Home & Kitchen"/>
+                                    <String fx:value="Sports"/>
+                                    <String fx:value="Beauty"/>
+                                </javafx.collections.FXCollections>
+                            </items>
+                        </ComboBox>
 
-            <Label text="GST %:" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-            <TextField fx:id="gstField" GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                        <Label text="Brand:" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                        <TextField fx:id="brandField" GridPane.rowIndex="1" GridPane.columnIndex="3"
+                                   promptText="e.g., Nike"/>
 
-            <Label text="Stock:" GridPane.rowIndex="5" GridPane.columnIndex="0"/>
-            <TextField fx:id="stockField" GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+                        <Label text="SKU:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="skuField" GridPane.rowIndex="2" GridPane.columnIndex="1"
+                                   promptText="Stock Keeping Unit"/>
 
-            <Button text="Save Product"
-                    onAction="#onSave"
-                    GridPane.rowIndex="6" GridPane.columnIndex="0" GridPane.columnSpan="2"
-                    maxWidth="Infinity"/>
-        </GridPane>
+                        <Label text="Barcode:" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                        <TextField fx:id="barcodeField" GridPane.rowIndex="2" GridPane.columnIndex="3"
+                                   promptText="Custom barcode (optional)"/>
+                    </GridPane>
+                </VBox>
+
+                <!-- Pricing Information -->
+                <VBox spacing="12" styleClass="card">
+                    <Label text="💰 PRICING INFORMATION" styleClass="label-header"/>
+                    <Separator/>
+
+                    <GridPane hgap="15" vgap="12">
+                        <Label text="MRP (₹)*:" GridPane.rowIndex="0" GridPane.columnIndex="0"
+                               style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="mrpField" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                   promptText="0.00" prefWidth="150"/>
+
+                        <Label text="Selling Price (₹)*:" GridPane.rowIndex="0" GridPane.columnIndex="2"
+                               style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="sellPriceField" GridPane.rowIndex="0" GridPane.columnIndex="3"
+                                   promptText="0.00" prefWidth="150"/>
+
+                        <Label text="Purchase Price (₹):" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="purchasePriceField" GridPane.rowIndex="1" GridPane.columnIndex="1"
+                                   promptText="0.00"/>
+
+                        <Label text="GST %*:" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                        <ComboBox fx:id="gstCombo" GridPane.rowIndex="1" GridPane.columnIndex="3"
+                                  editable="true" prefWidth="150">
+                            <items>
+                                <javafx.collections.FXCollections fx:factory="observableArrayList">
+                                    <String fx:value="0"/>
+                                    <String fx:value="5"/>
+                                    <String fx:value="12"/>
+                                    <String fx:value="18"/>
+                                    <String fx:value="28"/>
+                                </javafx.collections.FXCollections>
+                            </items>
+                        </ComboBox>
+
+                        <Label text="HSN Code:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="hsnField" GridPane.rowIndex="2" GridPane.columnIndex="1"
+                                   promptText="e.g., 6109"/>
+
+                        <Label text="Unit:" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
+                        <ComboBox fx:id="unitCombo" GridPane.rowIndex="2" GridPane.columnIndex="3"
+                                  editable="true" prefWidth="150">
+                            <items>
+                                <javafx.collections.FXCollections fx:factory="observableArrayList">
+                                    <String fx:value="PCS"/>
+                                    <String fx:value="KG"/>
+                                    <String fx:value="GRAM"/>
+                                    <String fx:value="LITRE"/>
+                                    <String fx:value="METER"/>
+                                    <String fx:value="BOX"/>
+                                    <String fx:value="DOZEN"/>
+                                </javafx.collections.FXCollections>
+                            </items>
+                        </ComboBox>
+                    </GridPane>
+
+                    <!-- Profit Margin Display -->
+                    <HBox spacing="10" style="-fx-background-color: #E8F5E9; -fx-padding: 10; -fx-background-radius: 5;">
+                        <Label text="💹 Profit Margin:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="profitMarginLabel" text="0%"
+                               style="-fx-font-weight: bold; -fx-text-fill: #2E7D32;"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label text="Profit Amount:" style="-fx-font-weight: bold;"/>
+                        <Label fx:id="profitAmountLabel" text="₹0.00"
+                               style="-fx-font-weight: bold; -fx-text-fill: #2E7D32;"/>
+                    </HBox>
+                </VBox>
+
+                <!-- Inventory Information -->
+                <VBox spacing="12" styleClass="card">
+                    <Label text="📊 INVENTORY INFORMATION" styleClass="label-header"/>
+                    <Separator/>
+
+                    <GridPane hgap="15" vgap="12">
+                        <Label text="Opening Stock*:" GridPane.rowIndex="0" GridPane.columnIndex="0"
+                               style="-fx-font-weight: bold;"/>
+                        <TextField fx:id="stockField" GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                   promptText="0" prefWidth="150"/>
+
+                        <Label text="Reorder Level:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                        <TextField fx:id="reorderField" GridPane.rowIndex="0" GridPane.columnIndex="3"
+                                   promptText="5" text="5" prefWidth="150"/>
+
+                        <Label text="Location/Rack:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="locationField" GridPane.rowIndex="1" GridPane.columnIndex="1"
+                                   promptText="e.g., A-12"/>
+
+                        <Label text="Status:" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                        <ComboBox fx:id="statusCombo" GridPane.rowIndex="1" GridPane.columnIndex="3"
+                                  prefWidth="150">
+                            <items>
+                                <javafx.collections.FXCollections fx:factory="observableArrayList">
+                                    <String fx:value="ACTIVE"/>
+                                    <String fx:value="INACTIVE"/>
+                                    <String fx:value="DISCONTINUED"/>
+                                </javafx.collections.FXCollections>
+                            </items>
+                        </ComboBox>
+                    </GridPane>
+                </VBox>
+
+                <!-- Additional Information -->
+                <VBox spacing="12" styleClass="card">
+                    <Label text="📝 ADDITIONAL INFORMATION" styleClass="label-header"/>
+                    <Separator/>
+
+                    <VBox spacing="8">
+                        <Label text="Description:"/>
+                        <TextArea fx:id="descriptionArea" promptText="Product description, features, etc."
+                                  prefRowCount="3" wrapText="true"/>
+                    </VBox>
+
+                    <VBox spacing="8">
+                        <Label text="Supplier Details:"/>
+                        <TextField fx:id="supplierField" promptText="Supplier name or code"/>
+                    </VBox>
+                </VBox>
+
+                <!-- Barcode Options -->
+                <VBox spacing="12" styleClass="card">
+                    <Label text="🏷️ BARCODE OPTIONS" styleClass="label-header"/>
+                    <Separator/>
+
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <CheckBox fx:id="generateBarcodeCheck" text="Auto-generate barcode" selected="true"/>
+                        <CheckBox fx:id="printLabelCheck" text="Print label after saving" selected="false"/>
+                    </HBox>
+
+                    <HBox spacing="10" style="-fx-background-color: #FFF3E0; -fx-padding: 10; -fx-background-radius: 5;">
+                        <Label text="ℹ️" style="-fx-font-size: 18px;"/>
+                        <Label text="Barcode will be generated automatically. You can customize it in the Barcode field above."
+                               wrapText="true" style="-fx-font-size: 11px;"/>
+                    </HBox>
+                </VBox>
+            </VBox>
+        </ScrollPane>
     </center>
 
+    <bottom>
+        <HBox spacing="15" style="-fx-background-color: #F5F5F5; -fx-padding: 15;" alignment="CENTER">
+            <Button text="💾 Save Product"
+                    onAction="#onSave"
+                    styleClass="button-primary"
+                    prefWidth="180" prefHeight="40"/>
+
+            <Button text="💾 Save & Add Another"
+                    onAction="#onSaveAndNew"
+                    styleClass="button-success"
+                    prefWidth="180" prefHeight="40"/>
+
+            <Button text="❌ Cancel"
+                    onAction="#onCancel"
+                    styleClass="button-danger"
+                    prefWidth="120" prefHeight="40"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <VBox alignment="CENTER_RIGHT" spacing="3">
+                <Label text="* Required fields" style="-fx-font-size: 11px; -fx-text-fill: #F44336;"/>
+                <Label text="Press Ctrl+S to save quickly" style="-fx-font-size: 10px; -fx-text-fill: #757575;"/>
+            </VBox>
+        </HBox>
+    </bottom>
 </BorderPane>
