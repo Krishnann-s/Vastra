@@ -10,7 +10,7 @@ public class Customer {
     private String pincode;
     private String birthday;
     private String anniversary;
-    private int points;
+    private double points;
     private int totalPurchasesCents;
     private int visitCount;
     private String tier;
@@ -47,8 +47,9 @@ public class Customer {
     public String getAnniversary() { return anniversary; }
     public void setAnniversary(String anniversary) { this.anniversary = anniversary; }
 
-    public int getPoints() { return points; }
-    public void setPoints(int points) { this.points = points; }
+    /** Loyalty points balance. Kept fractional (e.g. 66.09) to match exact 1% calculations - not rounded. */
+    public double getPoints() { return points; }
+    public void setPoints(double points) { this.points = points; }
 
     public int getTotalPurchasesCents() { return totalPurchasesCents; }
     public void setTotalPurchasesCents(int totalPurchasesCents) { this.totalPurchasesCents = totalPurchasesCents; }
@@ -72,7 +73,7 @@ public class Customer {
     public void setLastVisit(String lastVisit) { this.lastVisit = lastVisit; }
 
     // Convenience methods
-    public int getAvailableDiscount() {
+    public double getAvailableDiscount() {
         return points; // 1 point = 1 rupee discount
     }
 

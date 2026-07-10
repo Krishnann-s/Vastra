@@ -1,6 +1,7 @@
 package com.vastra.dao;
 
 import com.vastra.model.Product;
+import com.vastra.util.ActivityLogUtil;
 import com.vastra.util.DBUtil;
 
 import java.sql.*;
@@ -43,6 +44,7 @@ public class ProductDAO {
             ps.executeUpdate();
         }
 
+        ActivityLogUtil.log(null, "CREATE", "PRODUCT", prod_id, prod_name + " added");
         return prod_id;
     }
 
@@ -214,18 +216,28 @@ public class ProductDAO {
             ps.setString(16, product.getId());
             ps.executeUpdate();
         }
+
+        ActivityLogUtil.log(null, "UPDATE", "PRODUCT", product.getId(), product.getName() + " updated");
     }
 
     /**
-     * Deactivate product (soft delete)
+     * Deactivate product (soft delete). The row is never physically removed,
+     * so backups taken before or after this call both stay consistent - and
+     * this action is recorded in activity_log so you can see what was
+     * deleted and when.
      */
     public static void deactivateProduct(String productId) throws SQLException {
+        Product existing = findById(productId);
+
         String sql = "UPDATE products SET is_active = 0, updated_at = datetime('now') WHERE id = ?";
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, productId);
             ps.executeUpdate();
         }
+
+        String name = existing != null ? existing.getFullDisplayName() : productId;
+        ActivityLogUtil.log(null, "DELETE", "PRODUCT", productId, name + " deleted (soft delete)");
     }
 
     /**

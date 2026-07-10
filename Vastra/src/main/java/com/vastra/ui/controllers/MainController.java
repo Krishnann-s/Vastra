@@ -3,9 +3,13 @@ package com.vastra.ui.controllers;
 import com.vastra.dao.CustomerDAO;
 import com.vastra.dao.ProductDAO;
 import com.vastra.dao.SalesDAO;
+import com.vastra.dao.SupplierDAO;
 import com.vastra.model.CartItem;
 import com.vastra.model.Customer;
+import com.vastra.model.PayableReminder;
 import com.vastra.model.Product;
+import com.vastra.model.SaleReceiptData;
+import com.vastra.util.BackupUtil;
 import com.vastra.util.BarcodeScanner;
 import com.vastra.util.ThermalPrinterUtil;
 import javafx.application.Platform;
@@ -19,7 +23,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.TextFieldTableCell;
-import javafx.scene.input.KeyCode;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.converter.IntegerStringConverter;
@@ -44,9 +47,13 @@ public class MainController {
     @FXML private Label customerPointsLabel;
     @FXML private TextField discountField;
     @FXML private Label lowStockAlertLabel;
+    @FXML private Label paymentReminderLabel;
+    @FXML private Label backupReminderLabel;
+    @FXML private TextField cashierNameField;
 
     private ObservableList<CartItem> cartItems = FXCollections.observableArrayList();
     private Customer currentCustomer = null;
+    private double pointsRedeemedThisSale = 0;
     private BarcodeScanner barcodeScanner;
     private Stage primaryStage; // Store reference to main stage for focus handling
 
@@ -56,6 +63,8 @@ public class MainController {
         setupBarcodeScanner();
         setupKeyboardShortcuts();
         checkLowStockAlerts();
+        checkPaymentReminders();
+        checkBackupReminder();
 
         if (discountField != null) {
             discountField.setText("0");
@@ -138,6 +147,13 @@ public class MainController {
         final long[] lastKeyTime = {0};
 
         primaryStage.getScene().setOnKeyPressed(event -> {
+            // If the user is actively typing into any text field (discount, search
+            // boxes, dialogs, etc.), let it type normally - don't treat it as a scan.
+            javafx.scene.Node focusOwner = primaryStage.getScene().getFocusOwner();
+            if (focusOwner instanceof javafx.scene.control.TextInputControl) {
+                return;
+            }
+
             long currentTime = System.currentTimeMillis();
 
             // If more than 100ms between keys, reset buffer (manual typing)
@@ -319,10 +335,10 @@ public class MainController {
                 if (customer != null) {
                     currentCustomer = customer;
                     if (customerNameLabel != null) {
-                        customerNameLabel.setText(customer.getName() + " (" + customer.getTier() + ")");
+                        customerNameLabel.setText(customer.getName());
                     }
                     if (customerPointsLabel != null) {
-                        customerPointsLabel.setText(customer.getPoints() + " points available");
+                        customerPointsLabel.setText(String.format("%.2f points available", customer.getPoints()));
                     }
                 }
 
@@ -347,7 +363,7 @@ public class MainController {
 
         TextInputDialog dialog = new TextInputDialog("100");
         dialog.setTitle("Redeem Points");
-        dialog.setHeaderText("Customer has " + currentCustomer.getPoints() + " points\n1 point = ₹1 discount");
+        dialog.setHeaderText(String.format("Customer has %.2f points\n1 point = ₹1 discount", currentCustomer.getPoints()));
         dialog.setContentText("Points to redeem:");
 
         Optional<String> result = dialog.showAndWait();
@@ -365,6 +381,7 @@ public class MainController {
                 if (discountField != null) {
                     double currentDiscount = Double.parseDouble(discountField.getText());
                     discountField.setText(String.valueOf(currentDiscount + points));
+                    pointsRedeemedThisSale += points;
                     updateTotals();
                     showSuccess(points + " points will be redeemed");
                 }
@@ -393,7 +410,7 @@ public class MainController {
         }
 
         // Select payment method
-        ChoiceDialog<String> paymentDialog = new ChoiceDialog<>("CASH", "CASH", "CARD", "UPI", "OTHER");
+        ChoiceDialog<String> paymentDialog = new ChoiceDialog<>("CASH", "CASH", "CARD", "UPI", "CREDIT", "OTHER");
         paymentDialog.setTitle("Payment Method");
         paymentDialog.setHeaderText("Select payment method");
 
@@ -407,6 +424,10 @@ public class MainController {
             }
             String customerId = currentCustomer != null ? currentCustomer.getId() : null;
 
+            // Capture the customer's balance BEFORE redemption so the receipt's
+            // "Points Opening" line is accurate, regardless of what happens next.
+            double pointsOpeningForReceipt = currentCustomer != null ? currentCustomer.getPoints() : 0;
+
             // Redeem points if used
             if (currentCustomer != null && discountCents > 0) {
                 int pointsToRedeem = discountCents / 100; // 1 rupee = 1 point
@@ -415,25 +436,31 @@ public class MainController {
                 }
             }
 
-            // Complete sale
-            String saleId = SalesDAO.completeSale(
+            String cashierName = (cashierNameField != null && !cashierNameField.getText().isBlank())
+                    ? cashierNameField.getText().trim() : "Admin";
+
+            // Complete sale - returns everything needed to print the receipt
+            SaleReceiptData receipt = SalesDAO.completeSale(
                     new ArrayList<>(cartItems),
                     customerId,
+                    pointsOpeningForReceipt,
+                    pointsRedeemedThisSale,
                     discountCents,
-                    paymentResult.get()
+                    paymentResult.get(),
+                    cashierName
             );
 
-            showSuccess("Sale completed!\nInvoice: INV-" + System.currentTimeMillis());
+            showSuccess("Sale completed!\nBill No: " + receipt.getBillNumber());
 
             // Print bill
-            printBill(saleId);
+            printBill(receipt);
 
             // Clear cart and refresh customer points
             clearCart();
             if (currentCustomer != null) {
                 currentCustomer = CustomerDAO.findById(currentCustomer.getId());
                 if (customerPointsLabel != null && currentCustomer != null) {
-                    customerPointsLabel.setText(currentCustomer.getPoints() + " points available");
+                    customerPointsLabel.setText(String.format("%.2f points available", currentCustomer.getPoints()));
                 }
             }
 
@@ -443,22 +470,28 @@ public class MainController {
         }
     }
 
-    private void printBill(String saleId) {
+    private void printBill(SaleReceiptData receipt) {
         try {
-            double subtotal = Double.parseDouble(subtotalLabel.getText().replace("₹", ""));
-            double tax = Double.parseDouble(taxLabel.getText().replace("₹", ""));
-            double discount = Double.parseDouble(discountField.getText());
-            double total = Double.parseDouble(totalLabel.getText().replace("₹", ""));
+            // Since SaleReceiptData stores strings instead of a Customer object,
+            // we create a temporary Customer object for the printer to use.
+            com.vastra.model.Customer customer = null;
+            if (receipt.isHasCustomer()) {
+                customer = new com.vastra.model.Customer();
+                // Note: If your Customer class uses different setters (e.g., setCustomerName), adjust these two lines:
+                customer.setName(receipt.getCustomerName());
+                customer.setPhone(receipt.getCustomerPhone());
+            }
 
+            // Now we pass the exact names from your SaleReceiptData class
             boolean printed = ThermalPrinterUtil.printReceipt(
-                    "INV-" + System.currentTimeMillis(),
-                    new ArrayList<>(cartItems),
-                    currentCustomer,
-                    subtotal,
-                    tax,
-                    discount,
-                    total,
-                    "CASH" // Get from sale
+                    receipt.getBillNumber(),    // Fixed name
+                    receipt.getItems(),
+                    customer,                   // Passing the temporary customer object we made above
+                    receipt.getSubtotal(),
+                    receipt.getTax(),
+                    receipt.getDiscount(),
+                    receipt.getTotal(),
+                    receipt.getPaymentMode()    // Fixed name
             );
 
             if (!printed) {
@@ -486,6 +519,7 @@ public class MainController {
     private void clearCart() {
         cartItems.clear();
         currentCustomer = null;
+        pointsRedeemedThisSale = 0;
         if (customerNameLabel != null) customerNameLabel.setText("Walk-in Customer");
         if (customerPointsLabel != null) customerPointsLabel.setText("0 points");
         if (discountField != null) discountField.setText("0");
@@ -537,6 +571,68 @@ public class MainController {
         }
     }
 
+    /**
+     * Shows a banner at the top of the main screen reminding you which
+     * supplier to pay next - the one with the earliest outstanding due date
+     * (most overdue first, then soonest upcoming). Click the label to jump
+     * straight to that supplier's ledger.
+     */
+    private void checkPaymentReminders() {
+        if (paymentReminderLabel == null) return;
+        try {
+            PayableReminder reminder = SupplierDAO.getNextPaymentReminder();
+            if (reminder == null) {
+                paymentReminderLabel.setText("");
+                paymentReminderLabel.setVisible(false);
+                paymentReminderLabel.setManaged(false);
+                return;
+            }
+
+            String message;
+            String style;
+            if (reminder.isOverdue()) {
+                message = String.format("⚠ PAYMENT OVERDUE: %s — ₹%.2f owed, was due %s (%d day%s overdue). Click to view.",
+                        reminder.getSupplierName(), reminder.getAmountDue(), reminder.getNextDueDate(),
+                        reminder.getDaysDiff(), reminder.getDaysDiff() == 1 ? "" : "s");
+                style = "-fx-text-fill: white; -fx-background-color: #D32F2F; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-cursor: hand;";
+            } else {
+                long daysUntil = -reminder.getDaysDiff();
+                message = String.format("💰 Next payment due: %s — ₹%.2f due on %s (in %d day%s). Click to view.",
+                        reminder.getSupplierName(), reminder.getAmountDue(), reminder.getNextDueDate(),
+                        daysUntil, daysUntil == 1 ? "" : "s");
+                style = "-fx-text-fill: #333; -fx-background-color: #FFF3CD; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-cursor: hand;";
+            }
+
+            paymentReminderLabel.setText(message);
+            paymentReminderLabel.setStyle(style);
+            paymentReminderLabel.setVisible(true);
+            paymentReminderLabel.setManaged(true);
+            paymentReminderLabel.setOnMouseClicked(e -> onShowSuppliers());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Reminds you to run today's backup before closing up, matching your
+     * end-of-day workflow. Shown only when no backup has been taken today.
+     */
+    private void checkBackupReminder() {
+        if (backupReminderLabel == null) return;
+        if (BackupUtil.wasBackedUpToday()) {
+            backupReminderLabel.setText("");
+            backupReminderLabel.setVisible(false);
+            backupReminderLabel.setManaged(false);
+            return;
+        }
+        backupReminderLabel.setText("📦 No backup taken today — remember to back up before closing. Click to open Backup.");
+        backupReminderLabel.setStyle("-fx-text-fill: #333; -fx-background-color: #E1F5FE; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-cursor: hand;");
+        backupReminderLabel.setVisible(true);
+        backupReminderLabel.setManaged(true);
+        backupReminderLabel.setOnMouseClicked(e -> onShowBackup());
+    }
+
     private void playSuccessBeep() {
         // Implement sound feedback for successful scan
         java.awt.Toolkit.getDefaultToolkit().beep();
@@ -557,43 +653,61 @@ public class MainController {
     @FXML public void onEmailBill() { showInfo("Email Bill - Coming Soon!"); }
 
     @FXML
+    public void onExit() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Exit Vastra");
+        confirm.setHeaderText("Close the application?");
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            Platform.exit();
+        }
+    }
+
+    @FXML
     public void onPrintBarcodes() {
-        List<Product> products;
         try {
-            products = ProductDAO.getAllProducts();
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/label_print.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Print Labels");
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(scene);
+            stage.show();
         } catch (Exception e) {
             e.printStackTrace();
-            showError("Failed to load products for barcode print: " + e.getMessage());
-            return;
+            showError("Error opening label print screen: " + e.getMessage());
         }
+    }
 
-        if (products == null || products.isEmpty()) {
-            showInfo("No products found. Please add products first.");
-            return;
-        }
-
+    @FXML
+    public void onShowSuppliers() {
         try {
-            // Print barcode labels for all products
-            int labelsPrinted = 0;
-            for (Product p : products) {
-                boolean success = ThermalPrinterUtil.printBarcodeLabel(
-                        p.getFullDisplayName(),
-                        p.getSku() != null && !p.getSku().isEmpty() ? p.getSku() : p.getId(),
-                        p.getSellPrice()
-                );
-                if (success) labelsPrinted++;
-            }
-
-            if (labelsPrinted > 0) {
-                showSuccess("Successfully printed " + labelsPrinted + " barcode labels!\n" +
-                        "Cut the labels and stick them on products.");
-            } else {
-                showWarning("No labels were printed. Check printer connection.");
-            }
-
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/supplier.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Suppliers & Dues");
+            stage.setScene(scene);
+            stage.setOnHidden(e -> checkPaymentReminders()); // refresh banner after payments/purchases are recorded
+            stage.show();
         } catch (Exception e) {
             e.printStackTrace();
-            showError("Error printing barcodes: " + e.getMessage());
+            showError("Error opening suppliers screen: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onShowBackup() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/backup.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Backup, Restore & Excel Archive");
+            stage.setScene(scene);
+            stage.setOnHidden(e -> checkBackupReminder()); // refresh banner after a backup is taken
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening backup screen: " + e.getMessage());
         }
     }
 

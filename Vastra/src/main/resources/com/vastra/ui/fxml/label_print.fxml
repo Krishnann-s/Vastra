@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.LabelPrintController"
+            prefWidth="1000" prefHeight="650">
+
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <Label text="Print Barcode Labels (35mm x 22mm, 3 per row)"
+                   style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+        </VBox>
+    </top>
+
+    <left>
+        <VBox spacing="10" prefWidth="420">
+            <padding><Insets top="15" right="10" bottom="15" left="15"/></padding>
+
+            <Label text="1. Find product" style="-fx-font-weight: bold;"/>
+            <HBox spacing="8">
+                <TextField fx:id="searchField" promptText="Search by name..." HBox.hgrow="ALWAYS" onAction="#onSearch"/>
+                <Button text="Search" onAction="#onSearch"/>
+            </HBox>
+
+            <TableView fx:id="searchResultsTable" prefHeight="220">
+                <columns>
+                    <TableColumn fx:id="resultNameColumn" text="Product" prefWidth="200"/>
+                    <TableColumn fx:id="resultCodeColumn" text="Code" prefWidth="100"/>
+                    <TableColumn fx:id="resultPriceColumn" text="Price" prefWidth="80"/>
+                </columns>
+            </TableView>
+            <Button text="+ Add to Print Queue" onAction="#onAddToQueue" style="-fx-background-color: #4CAF50;"/>
+
+            <Separator/>
+
+            <Label text="2. Print queue (double-click Qty to edit)" style="-fx-font-weight: bold;"/>
+            <TableView fx:id="queueTable" prefHeight="220">
+                <columns>
+                    <TableColumn fx:id="queueNameColumn" text="Product" prefWidth="200"/>
+                    <TableColumn fx:id="queueQtyColumn" text="Qty" prefWidth="70" editable="true"/>
+                    <TableColumn fx:id="queueRemoveColumn" text="" prefWidth="90"/>
+                </columns>
+            </TableView>
+
+            <HBox spacing="8">
+                <Label text="Care note (optional):"/>
+                <TextField fx:id="careNoteField" promptText="e.g. NO SPIN TO DRY" HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <HBox spacing="10">
+                <Button text="🗑 Clear Queue" onAction="#onClearQueue" style="-fx-background-color: #F44336;"/>
+                <Button text="👁 Preview" onAction="#onPreview" style="-fx-background-color: #FF9800;"/>
+                <Button text="🖨️ Print" onAction="#onPrint" style="-fx-background-color: #4CAF50; -fx-font-weight: bold;"/>
+            </HBox>
+            <Button text="💾 Export as PNG (test without printer)" onAction="#onExportPng" style="-fx-background-color: #607D8B;"/>
+            <Label fx:id="statusLabel" style="-fx-text-fill: #666;"/>
+        </VBox>
+    </left>
+
+    <center>
+        <ScrollPane fx:id="previewPane" fitToWidth="true" style="-fx-background-color: #eee;"/>
+    </center>
+</BorderPane>

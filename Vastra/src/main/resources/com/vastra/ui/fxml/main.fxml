@@ -9,20 +9,81 @@
 
     <top>
         <VBox>
-            <!-- Main Toolbar -->
-            <ToolBar>
-                <Button text="➕ Add Product (F1)" onAction="#onAddProduct" />
+            <!-- Standard Menu Bar -->
+            <MenuBar>
+                <Menu text="File">
+                    <MenuItem text="Backup &amp; Data" onAction="#onShowBackup"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Exit" onAction="#onExit"/>
+                </Menu>
+                <Menu text="Sales">
+                    <MenuItem text="Add Product (F1)" onAction="#onAddProduct"/>
+                    <MenuItem text="Print Barcodes" onAction="#onPrintBarcodes"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Complete Sale (F3)" onAction="#onCompleteSale"/>
+                    <MenuItem text="Hold Sale" onAction="#onHoldSale"/>
+                    <MenuItem text="Clear Cart (F4)" onAction="#onClearCart"/>
+                    <MenuItem text="Email Bill" onAction="#onEmailBill"/>
+                </Menu>
+                <Menu text="Customer">
+                    <MenuItem text="Add Customer (F2)" onAction="#onAddCustomer"/>
+                    <MenuItem text="Redeem Points" onAction="#onRedeemPoints"/>
+                    <MenuItem text="Clear Customer" onAction="#onClearCustomer"/>
+                </Menu>
+                <Menu text="Inventory">
+                    <MenuItem text="Low Stock Alert" onAction="#onShowLowStock"/>
+                    <MenuItem text="Bulk Import" onAction="#onBulkImport"/>
+                    <MenuItem text="Returns" onAction="#onShowReturns"/>
+                </Menu>
+                <Menu text="Suppliers">
+                    <MenuItem text="Suppliers &amp; Dues" onAction="#onShowSuppliers"/>
+                </Menu>
+                <Menu text="Reports">
+                    <MenuItem text="Sales Reports" onAction="#onShowReports"/>
+                </Menu>
+                <Menu text="Tools">
+                    <MenuItem text="Settings" onAction="#onShowSettings"/>
+                </Menu>
+            </MenuBar>
+
+            <!-- Slim Icon Toolbar (quick access to the most common actions) -->
+            <ToolBar styleClass="compact-toolbar">
+                <Button text="➕" onAction="#onAddProduct" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Add Product (F1)"/></tooltip>
+                </Button>
+                <Button text="🖨️" onAction="#onPrintBarcodes" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Print Barcodes"/></tooltip>
+                </Button>
                 <Separator orientation="VERTICAL"/>
-                <Button text="🖨️ Print Barcodes" onAction="#onPrintBarcodes" styleClass="button-secondary"/>
+                <Button text="👤" onAction="#onAddCustomer" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Add Customer (F2)"/></tooltip>
+                </Button>
+                <Button text="🎁" onAction="#onRedeemPoints" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Redeem Points"/></tooltip>
+                </Button>
                 <Separator orientation="VERTICAL"/>
-                <Button text="👤 Add Customer (F2)" onAction="#onAddCustomer" />
-                <Button text="🎁 Redeem Points" onAction="#onRedeemPoints" />
-                <Button text="❌ Clear Customer" onAction="#onClearCustomer" />
+                <Button text="🚚" onAction="#onShowSuppliers" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Suppliers &amp; Dues"/></tooltip>
+                </Button>
+                <Button text="💾" onAction="#onShowBackup" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Backup &amp; Data"/></tooltip>
+                </Button>
                 <Separator orientation="VERTICAL"/>
-                <Button text="📊 Reports" onAction="#onShowReports" />
-                <Button text="⚠ Low Stock" onAction="#onShowLowStock" styleClass="button-warning"/>
-                <Button text="⚙ Settings" onAction="#onShowSettings" />
+                <Button text="📊" onAction="#onShowReports" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Reports"/></tooltip>
+                </Button>
+                <Button text="⚠" onAction="#onShowLowStock" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Low Stock Alert"/></tooltip>
+                </Button>
+                <Button text="⚙" onAction="#onShowSettings" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Settings"/></tooltip>
+                </Button>
             </ToolBar>
+
+            <!-- Payment Reminder Banner - shown/hidden dynamically by MainController -->
+            <Label fx:id="paymentReminderLabel" text="" maxWidth="Infinity" visible="false" managed="false"/>
+            <!-- Backup Reminder Banner - shown/hidden dynamically by MainController -->
+            <Label fx:id="backupReminderLabel" text="" maxWidth="Infinity" visible="false" managed="false"/>
 
             <!-- Low Stock Alert Bar -->
             <HBox style="-fx-background-color: #FFF3CD; -fx-padding: 5;">
@@ -50,6 +111,11 @@
                     <Label fx:id="customerPointsLabel"
                            text="0 points"
                            style="-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #4CAF50;"/>
+                </VBox>
+                <VBox spacing="5">
+                    <Label text="Cashier:" style="-fx-font-size: 12px;"/>
+                    <TextField fx:id="cashierNameField" text="Admin" prefWidth="140"
+                               style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
                 </VBox>
                 <Region HBox.hgrow="ALWAYS"/>
                 <VBox spacing="5" alignment="CENTER_RIGHT">

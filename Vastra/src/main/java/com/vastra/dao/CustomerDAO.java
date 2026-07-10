@@ -1,12 +1,15 @@
 package com.vastra.dao;
 
 import com.vastra.model.Customer;
+import com.vastra.util.ActivityLogUtil;
 import com.vastra.util.DBUtil;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class CustomerDAO {
@@ -39,14 +42,19 @@ public class CustomerDAO {
             ps.executeUpdate();
         }
 
+        ActivityLogUtil.log(null, "CREATE", "CUSTOMER", id, name + " added");
         return findByPhone(phone);
     }
 
-    public static void addPoints(String customerId, int points) throws SQLException {
+    /**
+     * Adds loyalty points. Accepts a fractional amount (e.g. 66.09) since
+     * points are calculated as an exact 1% of the sale total, unrounded.
+     */
+    public static void addPoints(String customerId, double points) throws SQLException {
         String sql = "UPDATE customers SET points = points + ? WHERE id = ?";
         try (Connection c = DBUtil.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, points);
+            ps.setDouble(1, points);
             ps.setString(2, customerId);
             ps.executeUpdate();
         }
@@ -79,6 +87,39 @@ public class CustomerDAO {
         return null;
     }
 
+    /** All active customers - used by search screens and the yearly Excel archive. */
+    public static List<Customer> getAllCustomers() throws SQLException {
+        String sql = "SELECT * FROM customers WHERE is_active = 1 ORDER BY name";
+        List<Customer> list = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(extractCustomer(rs));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Soft-deletes a customer (is_active = 0). The row and their full sales
+     * history stay in the database - nothing is physically removed - and the
+     * action is recorded in activity_log.
+     */
+    public static void deactivateCustomer(String customerId) throws SQLException {
+        Customer existing = findById(customerId);
+
+        String sql = "UPDATE customers SET is_active = 0 WHERE id = ?";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, customerId);
+            ps.executeUpdate();
+        }
+
+        String name = existing != null ? existing.getName() : customerId;
+        ActivityLogUtil.log(null, "DELETE", "CUSTOMER", customerId, name + " deleted (soft delete)");
+    }
+
     private static Customer extractCustomer(ResultSet rs) throws SQLException {
         Customer c = new Customer();
         c.setId(rs.getString("id"));
@@ -103,7 +144,7 @@ public class CustomerDAO {
         String anniversary = rs.getString("anniversary");
         c.setAnniversary(anniversary != null ? anniversary : "");
 
-        c.setPoints(rs.getInt("points"));
+        c.setPoints(rs.getDouble("points"));
         c.setTotalPurchasesCents(rs.getInt("total_purchases_cents"));
         c.setVisitCount(rs.getInt("visit_count"));
 

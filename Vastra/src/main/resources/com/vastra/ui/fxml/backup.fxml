@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.BackupController"
+            prefWidth="1000" prefHeight="650">
+
+    <top>
+        <VBox style="-fx-background-color: #607D8B; -fx-padding: 15;" spacing="5">
+            <Label text="Backup, Restore &amp; Excel Archive" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <Label fx:id="lastBackupLabel" text="" style="-fx-font-size: 13px;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <HBox spacing="15">
+            <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+            <!-- Left: Backup / Restore -->
+            <VBox spacing="10" prefWidth="480">
+                <Label text="1. Daily Backup" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <Label text="Click this at the end of each day. Creates a full, consistent snapshot of everything."
+                       wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <Button text="💾 Backup Now" onAction="#onBackupNow"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"
+                        prefWidth="200" prefHeight="40"/>
+
+                <Separator/>
+
+                <Label text="2. Restore From Backup" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <Label text="Select a backup below and restore it if your data is ever lost or corrupted. Your current data is always safety-backed-up first."
+                       wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <TableView fx:id="backupTable" VBox.vgrow="ALWAYS" prefHeight="250">
+                    <columns>
+                        <TableColumn fx:id="backupNameColumn" text="Backup File" prefWidth="300"/>
+                        <TableColumn fx:id="backupSizeColumn" text="Size" prefWidth="100"/>
+                    </columns>
+                </TableView>
+                <Button text="♻ Restore Selected Backup" onAction="#onRestoreSelected"
+                        style="-fx-background-color: #D32F2F; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            </VBox>
+
+            <Separator orientation="VERTICAL"/>
+
+            <!-- Right: Excel Archive + Deletions -->
+            <VBox spacing="10" HBox.hgrow="ALWAYS">
+                <Label text="3. Excel Archive Export" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <Label text="Export all sales, purchases, payments and current inventory/customer/supplier lists for a chosen year or month."
+                       wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Year:"/>
+                    <ComboBox fx:id="yearCombo"/>
+                    <Label text="Month:"/>
+                    <ComboBox fx:id="monthCombo"/>
+                    <Button text="📥 Export to Excel" onAction="#onExportExcel"
+                            style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;"/>
+                </HBox>
+
+                <Separator/>
+
+                <Label text="4. Recent Deletions (Audit Trail)" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <Label text="Every product, customer or supplier you delete is logged here (they're never truly erased, just hidden - so backups always stay consistent)."
+                       wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <TableView fx:id="deletionsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="delTimeColumn" text="When" prefWidth="150"/>
+                        <TableColumn fx:id="delTypeColumn" text="Type" prefWidth="100"/>
+                        <TableColumn fx:id="delDetailsColumn" text="Details" prefWidth="250"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </HBox>
+    </center>
+</BorderPane>
