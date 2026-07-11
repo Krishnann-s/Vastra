@@ -257,6 +257,23 @@ Exchange time 2 to 4pm
 Exchange within 2 days from date of purchase
 Don''t bargain', datetime('now'));
             """);
+
+            // Payments received from customers against CREDIT sales
+            s.execute("""
+    CREATE TABLE IF NOT EXISTS customer_payments(
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      sale_id TEXT,
+      amount_cents INTEGER NOT NULL,
+      payment_date TEXT,
+      payment_mode TEXT,
+      notes TEXT,
+      created_at TEXT,
+      FOREIGN KEY(customer_id) REFERENCES customers(id)
+    );
+""");
+            s.execute("CREATE INDEX IF NOT EXISTS idx_return_items_sale_item ON return_items(sale_item_id);");
+            s.execute("CREATE INDEX IF NOT EXISTS idx_customer_payments_customer ON customer_payments(customer_id);");
         }
     }
 }

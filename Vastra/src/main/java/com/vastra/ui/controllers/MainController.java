@@ -12,6 +12,8 @@ import com.vastra.model.SaleReceiptData;
 import com.vastra.util.BackupUtil;
 import com.vastra.util.BarcodeScanner;
 import com.vastra.util.ThermalPrinterUtil;
+import com.vastra.util.WhatsAppUtil;
+import com.vastra.util.IconUtil;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -56,6 +58,7 @@ public class MainController {
     private double pointsRedeemedThisSale = 0;
     private BarcodeScanner barcodeScanner;
     private Stage primaryStage; // Store reference to main stage for focus handling
+    private SaleReceiptData lastCompletedSale;
 
     @FXML
     public void initialize() {
@@ -283,6 +286,22 @@ public class MainController {
     }
 
     @FXML
+    public void onShowCustomerLedger() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/customer_ledger.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Customer Ledger");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening customer ledger: " + e.getMessage());
+        }
+    }
+
+    @FXML
     public void onAddProduct() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/product_form.fxml"));
@@ -452,8 +471,8 @@ public class MainController {
 
             showSuccess("Sale completed!\nBill No: " + receipt.getBillNumber());
 
-            // Print bill
-            printBill(receipt);
+            lastCompletedSale = receipt;
+            handleBillSharing(receipt);
 
             // Clear cart and refresh customer points
             clearCart();
@@ -502,6 +521,55 @@ public class MainController {
         }
     }
 
+    private enum ShareMode { PRINT_ONLY, WHATSAPP_ONLY, BOTH, SKIP }
+
+    private void handleBillSharing(SaleReceiptData receipt) {
+        ShareMode mode = askShareMode();
+        if (mode == ShareMode.PRINT_ONLY || mode == ShareMode.BOTH) {
+            printBill(receipt);
+        }
+        if (mode == ShareMode.WHATSAPP_ONLY || mode == ShareMode.BOTH) {
+            shareViaWhatsApp(receipt);
+        }
+    }
+
+    private ShareMode askShareMode() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Share Bill");
+        alert.setHeaderText("How would you like to share this bill?");
+
+        ButtonType printBtn = new ButtonType("🖨️ Print Only");
+        ButtonType whatsappBtn = new ButtonType("📱 WhatsApp Only");
+        ButtonType bothBtn = new ButtonType("🖨️📱 Both");
+        ButtonType skipBtn = new ButtonType("Skip", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(printBtn, whatsappBtn, bothBtn, skipBtn);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isEmpty() || result.get() == skipBtn) return ShareMode.SKIP;
+        if (result.get() == printBtn) return ShareMode.PRINT_ONLY;
+        if (result.get() == whatsappBtn) return ShareMode.WHATSAPP_ONLY;
+        return ShareMode.BOTH;
+    }
+
+    private void shareViaWhatsApp(SaleReceiptData receipt) {
+        String phone = receipt.isHasCustomer() ? receipt.getCustomerPhone() : null;
+        if (phone == null || phone.isBlank()) {
+            TextInputDialog phoneDialog = new TextInputDialog();
+            phoneDialog.setTitle("WhatsApp Bill");
+            phoneDialog.setHeaderText("Enter customer's WhatsApp number");
+            phoneDialog.setContentText("Phone (10 digits, or with country code):");
+            Optional<String> result = phoneDialog.showAndWait();
+            if (result.isEmpty() || result.get().isBlank()) return;
+            phone = result.get().trim();
+        }
+
+        try {
+            WhatsAppUtil.shareBill(phone, receipt);
+        } catch (Exception e) {
+            showWarning("Could not open WhatsApp: " + e.getMessage());
+        }
+    }
+
     @FXML
     public void onClearCart() {
         if (cartItems.isEmpty()) return;
@@ -531,6 +599,22 @@ public class MainController {
         currentCustomer = null;
         if (customerNameLabel != null) customerNameLabel.setText("Walk-in Customer");
         if (customerPointsLabel != null) customerPointsLabel.setText("0 points");
+    }
+
+    @FXML
+    public void onShowDashboard() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/dashboard.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = primaryStage != null ? primaryStage : (Stage) cartTable.getScene().getWindow();
+            com.vastra.ui.controllers.DashboardController controller = loader.getController();
+            controller.setStage(stage);
+            stage.setTitle("Vastra");
+            stage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening dashboard: " + e.getMessage());
+        }
     }
 
     @FXML
@@ -646,11 +730,33 @@ public class MainController {
     // Stub methods for future implementation
     @FXML public void onBulkImport() { showInfo("Bulk Import - Coming Soon!"); }
     @FXML public void onShowReports() { showInfo("Reports - Coming Soon!"); }
-    @FXML public void onShowReturns() { showInfo("Returns - Coming Soon!"); }
     @FXML public void onShowSettings() { showInfo("Settings - Coming Soon!"); }
     @FXML public void onAddItemManually() { showInfo("Add Item Manually - Coming Soon!"); }
     @FXML public void onHoldSale() { showInfo("Hold Sale - Coming Soon!"); }
-    @FXML public void onEmailBill() { showInfo("Email Bill - Coming Soon!"); }
+    @FXML
+    public void onShareLastBillWhatsApp() {
+        if (lastCompletedSale == null) {
+            showInfo("No recent bill to share yet — complete a sale first.");
+            return;
+        }
+        shareViaWhatsApp(lastCompletedSale);
+    }
+
+    @FXML
+    public void onShowReturns() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/returns.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Returns & Exchange");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening returns screen: " + e.getMessage());
+        }
+    }
 
     @FXML
     public void onExit() {

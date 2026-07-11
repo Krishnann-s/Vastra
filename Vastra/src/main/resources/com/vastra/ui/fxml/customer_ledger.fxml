@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.CustomerLedgerController"
+            stylesheets="@../css/styles.css" prefWidth="1000" prefHeight="650">
+
+    <left>
+        <VBox spacing="10" style="-fx-padding: 15; -fx-pref-width: 320;">
+            <Label text="Customers" styleClass="label-header"/>
+            <HBox spacing="8">
+                <TextField fx:id="searchField" promptText="Search name or phone" HBox.hgrow="ALWAYS"/>
+                <Button text="🔍" onAction="#onSearch"/>
+            </HBox>
+            <TableView fx:id="customerTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="nameColumn" text="Name" prefWidth="140"/>
+                    <TableColumn fx:id="phoneColumn" text="Phone" prefWidth="90"/>
+                    <TableColumn fx:id="dueColumn" text="Owes You" prefWidth="90"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </left>
+
+    <center>
+        <VBox spacing="10" style="-fx-padding: 15;">
+            <Label fx:id="selectedCustomerLabel" text="Select a customer" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+            <Label fx:id="totalDueLabel" text="" style="-fx-font-size: 14px; -fx-text-fill: #D32F2F;"/>
+
+            <HBox spacing="10">
+                <Button text="💵 Record Payment" onAction="#onRecordPayment" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+            </HBox>
+
+            <Label text="Ledger (Statement)" style="-fx-font-weight: bold;"/>
+            <TableView fx:id="ledgerTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="ledgerDateColumn" text="Date" prefWidth="140"/>
+                    <TableColumn fx:id="ledgerTypeColumn" text="Type" prefWidth="90"/>
+                    <TableColumn fx:id="ledgerRefColumn" text="Ref / Mode" prefWidth="120"/>
+                    <TableColumn fx:id="ledgerDebitColumn" text="Sold on Credit (₹)" prefWidth="140"/>
+                    <TableColumn fx:id="ledgerCreditColumn" text="Paid (₹)" prefWidth="120"/>
+                    <TableColumn fx:id="ledgerBalanceColumn" text="Balance Owed (₹)" prefWidth="150"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+</BorderPane>

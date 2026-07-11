@@ -3,6 +3,7 @@ package com.vastra.dao;
 import com.vastra.model.Customer;
 import com.vastra.util.ActivityLogUtil;
 import com.vastra.util.DBUtil;
+import com.vastra.model.CustomerLedgerEntry;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -85,6 +86,86 @@ public class CustomerDAO {
             }
         }
         return null;
+    }
+
+    public static List<Customer> searchByName(String term) throws SQLException {
+        String sql = "SELECT * FROM customers WHERE is_active = 1 AND (name LIKE ? OR phone LIKE ?) ORDER BY name LIMIT 30";
+        List<Customer> list = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, "%" + term + "%");
+            ps.setString(2, "%" + term + "%");
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) list.add(extractCustomer(rs));
+        }
+        return list;
+    }
+
+    /** Current amount owed BY this customer: sum of CREDIT sales - payments received. */
+    public static int getCurrentDueCents(String customerId) throws SQLException {
+        int creditSalesTotal = 0;
+        String saleSql = "SELECT COALESCE(SUM(total_cents),0) FROM sales WHERE customer_id = ? AND payment_mode = 'CREDIT'";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(saleSql)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) creditSalesTotal = rs.getInt(1);
+        }
+
+        int paymentTotal = 0;
+        String paymentSql = "SELECT COALESCE(SUM(amount_cents),0) FROM customer_payments WHERE customer_id = ?";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(paymentSql)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) paymentTotal = rs.getInt(1);
+        }
+
+        return creditSalesTotal - paymentTotal;
+    }
+
+    /** Full statement: every credit sale (debit) and payment (credit) in chronological order, with a running balance. */
+    public static List<CustomerLedgerEntry> getLedger(String customerId) throws SQLException {
+        List<Object[]> rawRows = new ArrayList<>(); // [date, type, refNo, description, amountCents]
+
+        String saleSql = "SELECT ts, invoice_number, total_cents FROM sales WHERE customer_id = ? AND payment_mode = 'CREDIT'";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(saleSql)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                rawRows.add(new Object[]{rs.getString("ts"), "SALE", rs.getString("invoice_number"), "Credit sale", rs.getInt("total_cents")});
+            }
+        }
+
+        String paymentSql = "SELECT payment_date, payment_mode, amount_cents, notes FROM customer_payments WHERE customer_id = ?";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(paymentSql)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                rawRows.add(new Object[]{rs.getString("payment_date"), "PAYMENT", rs.getString("payment_mode"),
+                        rs.getString("notes") != null ? rs.getString("notes") : "Payment received", rs.getInt("amount_cents")});
+            }
+        }
+
+        rawRows.sort((a, b) -> String.valueOf(a[0]).compareTo(String.valueOf(b[0])));
+
+        List<CustomerLedgerEntry> ledger = new ArrayList<>();
+        int running = 0;
+        for (Object[] row : rawRows) {
+            String date = (String) row[0];
+            boolean isSale = "SALE".equals(row[1]);
+            int amountCents = (int) row[4];
+            if (isSale) {
+                running += amountCents;
+                ledger.add(new CustomerLedgerEntry(date, CustomerLedgerEntry.Type.SALE, (String) row[2], (String) row[3], amountCents, 0, running));
+            } else {
+                running -= amountCents;
+                ledger.add(new CustomerLedgerEntry(date, CustomerLedgerEntry.Type.PAYMENT, (String) row[2], (String) row[3], 0, amountCents, running));
+            }
+        }
+        return ledger;
     }
 
     /** All active customers - used by search screens and the yearly Excel archive. */

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.ReturnController"
+            stylesheets="@../css/styles.css" prefWidth="950" prefHeight="650">
+
+    <top>
+        <VBox spacing="10" style="-fx-padding: 15;">
+            <Label text="Returns &amp; Exchange" styleClass="label-header"/>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Invoice / Bill No:"/>
+                <TextField fx:id="invoiceField" promptText="e.g. 1023" prefWidth="150"/>
+                <Button text="🔍 Find Bill" onAction="#onFindBill"/>
+                <Label fx:id="saleInfoLabel" style="-fx-text-fill: #555;"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="10" style="-fx-padding: 0 15 15 15;">
+            <TableView fx:id="itemsTable" editable="true" prefHeight="260">
+                <columns>
+                    <TableColumn fx:id="nameColumn" text="Item" prefWidth="220"/>
+                    <TableColumn fx:id="soldQtyColumn" text="Sold" prefWidth="60"/>
+                    <TableColumn fx:id="returnedQtyColumn" text="Already Returned" prefWidth="120"/>
+                    <TableColumn fx:id="returnQtyColumn" text="Return Qty" prefWidth="100"/>
+                    <TableColumn fx:id="unitPriceColumn" text="Unit Price" prefWidth="90"/>
+                    <TableColumn fx:id="refundColumn" text="Refund" prefWidth="90"/>
+                </columns>
+            </TableView>
+
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Label text="Reason:"/>
+                <TextField fx:id="reasonField" promptText="e.g. Size issue, defective, changed mind" HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <HBox spacing="20" alignment="CENTER_LEFT">
+                <CheckBox fx:id="restockCheckBox" text="Add returned items back to stock" selected="true"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label text="Refund Total:" style="-fx-font-weight: bold;"/>
+                <Label fx:id="refundTotalLabel" text="₹0.00" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #D32F2F;"/>
+            </HBox>
+
+            <HBox spacing="15" alignment="CENTER_RIGHT">
+                <Button text="✅ Process Return" onAction="#onProcessReturn"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"
+                        prefWidth="180" prefHeight="40"/>
+                <Button text="Cancel" onAction="#onCancel" prefWidth="100" prefHeight="40"/>
+            </HBox>
+
+            <Separator/>
+            <Label text="Recent Returns" style="-fx-font-weight: bold;"/>
+            <TableView fx:id="recentReturnsTable" prefHeight="150">
+                <columns>
+                    <TableColumn fx:id="rDateColumn" text="Date" prefWidth="100"/>
+                    <TableColumn fx:id="rInvoiceColumn" text="Invoice" prefWidth="90"/>
+                    <TableColumn fx:id="rCustomerColumn" text="Customer" prefWidth="150"/>
+                    <TableColumn fx:id="rReasonColumn" text="Reason" prefWidth="220"/>
+                    <TableColumn fx:id="rAmountColumn" text="Refund" prefWidth="100"/>
+                    <TableColumn fx:id="rStatusColumn" text="Status" prefWidth="90"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+</BorderPane>

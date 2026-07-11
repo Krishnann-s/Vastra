@@ -23,7 +23,8 @@
                     <MenuItem text="Complete Sale (F3)" onAction="#onCompleteSale"/>
                     <MenuItem text="Hold Sale" onAction="#onHoldSale"/>
                     <MenuItem text="Clear Cart (F4)" onAction="#onClearCart"/>
-                    <MenuItem text="Email Bill" onAction="#onEmailBill"/>
+                    <MenuItem text="Share Last Bill (WhatsApp)" onAction="#onShareLastBillWhatsApp"/>
+                    <MenuItem text="Customer Ledger" onAction="#onShowCustomerLedger"/>
                 </Menu>
                 <Menu text="Customer">
                     <MenuItem text="Add Customer (F2)" onAction="#onAddCustomer"/>
@@ -48,6 +49,9 @@
 
             <!-- Slim Icon Toolbar (quick access to the most common actions) -->
             <ToolBar styleClass="compact-toolbar">
+                <Button text="🏠" onAction="#onShowDashboard" styleClass="toolbar-icon-btn">
+                <tooltip><Tooltip text="Dashboard"/></tooltip>
+                </Button>
                 <Button text="➕" onAction="#onAddProduct" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Add Product (F1)"/></tooltip>
                 </Button>

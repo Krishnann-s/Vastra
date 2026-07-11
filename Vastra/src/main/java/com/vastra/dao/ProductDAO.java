@@ -146,6 +146,17 @@ public class ProductDAO {
         }
     }
 
+    /** Used when a return puts stock back. */
+    public static void incrementStock(String productId, int quantity) throws SQLException {
+        String sql = "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?";
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, quantity);
+            ps.setString(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
     /**
      * Get products with low stock (at or below reorder threshold)
      */

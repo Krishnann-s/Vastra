@@ -6,6 +6,8 @@ import com.vastra.model.SaleReceiptData;
 import com.vastra.util.DBUtil;
 import com.vastra.util.SequenceUtil;
 import com.vastra.util.TaxBreakupUtil;
+import com.vastra.model.Sale;
+import com.vastra.model.SaleItem;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,6 +16,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class SalesDAO {
@@ -178,6 +181,54 @@ public class SalesDAO {
                 conn.close();
             }
         }
+    }
+
+    public static Sale findByInvoiceNumber(String invoiceNumber) throws SQLException {
+        String sql = """
+        SELECT s.*, c.name as customer_name FROM sales s
+        LEFT JOIN customers c ON s.customer_id = c.id
+        WHERE s.invoice_number = ?
+    """;
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, invoiceNumber.trim());
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Sale sale = new Sale();
+                sale.setId(rs.getString("id"));
+                sale.setInvoiceNumber(rs.getString("invoice_number"));
+                sale.setCustomerId(rs.getString("customer_id"));
+                sale.setCustomerName(rs.getString("customer_name"));
+                sale.setTs(rs.getString("ts"));
+                sale.setTotalCents(rs.getInt("total_cents"));
+                sale.setPaymentMode(rs.getString("payment_mode"));
+                return sale;
+            }
+        }
+        return null;
+    }
+
+    public static List<SaleItem> getSaleItems(String saleId) throws SQLException {
+        String sql = "SELECT * FROM sale_items WHERE sale_id = ?";
+        List<SaleItem> list = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, saleId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                SaleItem item = new SaleItem();
+                item.setId(rs.getString("id"));
+                item.setSaleId(rs.getString("sale_id"));
+                item.setProductId(rs.getString("product_id"));
+                item.setProductName(rs.getString("product_name"));
+                item.setProductVariant(rs.getString("product_variant"));
+                item.setQty(rs.getInt("qty"));
+                item.setUnitPriceCents(rs.getInt("unit_price_cents"));
+                item.setLineTotalCents(rs.getInt("line_total_cents"));
+                list.add(item);
+            }
+        }
+        return list;
     }
 
     public static ResultSet getDailySalesReport(String date) throws SQLException {

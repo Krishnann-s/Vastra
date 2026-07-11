@@ -18,8 +18,19 @@ public class Customer {
     private boolean isActive;
     private String createdAt;
     private String lastVisit;
+    private int dueCents;
+    public double getDue(){
+        return dueCents /100.0;
+    }
 
     // Getters and Setters
+    public int getDueCents() {
+        return dueCents;
+    }
+    public void setDueCents(int dueCents){
+        this.dueCents = dueCents;
+    }
+
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.DashboardController"
+            stylesheets="@../css/styles.css">
+
+    <top>
+        <VBox style="-fx-padding: 20 20 0 20;">
+            <Label fx:id="storeNameLabel" text="Vastra" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
+            <Label fx:id="dateLabel" text="" style="-fx-text-fill: #666;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="20" style="-fx-padding: 20;">
+            <GridPane hgap="15" vgap="15">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
+                </columnConstraints>
+
+                <VBox styleClass="card" GridPane.columnIndex="0" spacing="8">
+                    <Label text="TODAY'S SALES" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label fx:id="todaysSalesLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #2E7D32;"/>
+                    <Label fx:id="todaysSalesCountLabel" text="0 bills" style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
+                </VBox>
+
+                <VBox styleClass="card" GridPane.columnIndex="1" spacing="8">
+                    <Label text="LOW STOCK" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label fx:id="lowStockLabel" text="0" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #F57C00;"/>
+                    <Label fx:id="outOfStockLabel" text="0 out of stock" style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
+                </VBox>
+
+                <VBox styleClass="card" GridPane.columnIndex="2" spacing="8">
+                    <Label text="YOU OWE SUPPLIERS" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label fx:id="supplierDueLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #D32F2F;"/>
+                </VBox>
+
+                <VBox styleClass="card" GridPane.columnIndex="3" spacing="8">
+                    <Label text="CUSTOMERS OWE YOU" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label fx:id="customerDueLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
+                </VBox>
+            </GridPane>
+
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="🛒 Start New Sale" onAction="#onStartSale" styleClass="button-primary" prefHeight="55" prefWidth="220"
+                        style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <Button text="Suppliers &amp; Dues" onAction="#onShowSuppliers" prefHeight="55"/>
+                <Button text="⚠ Low Stock" onAction="#onShowLowStock" prefHeight="55"/>
+                <Button text="Backup" onAction="#onShowBackup" prefHeight="55"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Button text="⟳ Refresh" onAction="#onRefresh"/>
+            </HBox>
+        </VBox>
+    </center>
+</BorderPane>
