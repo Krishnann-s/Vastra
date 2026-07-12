@@ -1,29 +1,35 @@
 package com.vastra;
 
+import com.vastra.ui.controllers.LoginController;
 import com.vastra.util.DBUtil;
+import com.vastra.util.IconUtil;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-import com.vastra.ui.controllers.DashboardController;
-import com.vastra.util.IconUtil;
 
 public class MainApp extends Application {
 
     public void start(Stage stage) throws Exception {
         DBUtil.init();
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/dashboard.fxml"));
-        Scene scene = new Scene(loader.load());
 
-        DashboardController controller = loader.getController();
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/login.fxml"));
+        Parent root = loader.load();
+
+        LoginController controller = loader.getController();
         controller.setStage(stage);
 
-        stage.setTitle("Vastra");
-        stage.setScene(scene);
+        stage.setTitle("Vastra - Login");
+        stage.setScene(new Scene(root));
         IconUtil.applyAppIcon(stage);
-        stage.setWidth(1100);
-        stage.setHeight(700);
+
+        // This is the ONLY place a real Scene gets created and the ONLY
+        // place setMaximized is called - every screen after this reuses the
+        // same Scene via WindowUtil.swapRoot(), so the window itself is
+        // never touched again.
         stage.show();
+        stage.setMaximized(true);
     }
 
     public static void main(String[] args) { launch(); }

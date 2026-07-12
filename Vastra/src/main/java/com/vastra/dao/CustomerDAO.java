@@ -182,6 +182,25 @@ public class CustomerDAO {
         return list;
     }
 
+    /** Updates the editable profile fields (not points/tier, which only change via addPoints/redeemPoints). */
+    public static void updateCustomerDetails(Customer c) throws SQLException {
+        String sql = """
+        UPDATE customers SET name = ?, phone = ?, email = ?, address = ?, city = ?, pincode = ?
+        WHERE id = ?
+    """;
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, c.getName());
+            ps.setString(2, c.getPhone());
+            ps.setString(3, c.getEmail());
+            ps.setString(4, c.getAddress());
+            ps.setString(5, c.getCity());
+            ps.setString(6, c.getPincode());
+            ps.setString(7, c.getId());
+            ps.executeUpdate();
+        }
+    }
+
     /**
      * Soft-deletes a customer (is_active = 0). The row and their full sales
      * history stay in the database - nothing is physically removed - and the

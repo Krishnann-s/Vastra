@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.control.*?>
 
@@ -8,10 +7,16 @@
             stylesheets="@../css/styles.css">
 
     <top>
-        <VBox style="-fx-padding: 20 20 0 20;">
-            <Label fx:id="storeNameLabel" text="Vastra" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
-            <Label fx:id="dateLabel" text="" style="-fx-text-fill: #666;"/>
-        </VBox>
+        <HBox alignment="CENTER_LEFT" style="-fx-padding: 20 20 0 20;">
+            <VBox HBox.hgrow="ALWAYS">
+                <Label fx:id="storeNameLabel" text="Vastra" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
+                <Label fx:id="dateLabel" text="" style="-fx-text-fill: #666;"/>
+            </VBox>
+            <VBox alignment="CENTER_RIGHT" spacing="5">
+                <Label fx:id="userLabel" text="" style="-fx-font-weight: bold;"/>
+                <Button text="Logout" onAction="#onLogout" style="-fx-font-size: 11px;"/>
+            </VBox>
+        </HBox>
     </top>
 
     <center>
@@ -36,12 +41,12 @@
                     <Label fx:id="outOfStockLabel" text="0 out of stock" style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
                 </VBox>
 
-                <VBox styleClass="card" GridPane.columnIndex="2" spacing="8">
+                <VBox fx:id="supplierDueCard" styleClass="card" GridPane.columnIndex="2" spacing="8">
                     <Label text="YOU OWE SUPPLIERS" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
                     <Label fx:id="supplierDueLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #D32F2F;"/>
                 </VBox>
 
-                <VBox styleClass="card" GridPane.columnIndex="3" spacing="8">
+                <VBox fx:id="customerDueCard" styleClass="card" GridPane.columnIndex="3" spacing="8">
                     <Label text="CUSTOMERS OWE YOU" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
                     <Label fx:id="customerDueLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
                 </VBox>
@@ -50,9 +55,10 @@
             <HBox spacing="15" alignment="CENTER_LEFT">
                 <Button text="🛒 Start New Sale" onAction="#onStartSale" styleClass="button-primary" prefHeight="55" prefWidth="220"
                         style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
-                <Button text="Suppliers &amp; Dues" onAction="#onShowSuppliers" prefHeight="55"/>
+                <Button fx:id="suppliersButton" text="Suppliers &amp; Dues" onAction="#onShowSuppliers" prefHeight="55"/>
+                <Button fx:id="backupButton" text="Backup" onAction="#onShowBackup" prefHeight="55"/>
+                <Button fx:id="manageUsersButton" text="👤 Manage Users" onAction="#onManageUsers" prefHeight="55"/>
                 <Button text="⚠ Low Stock" onAction="#onShowLowStock" prefHeight="55"/>
-                <Button text="Backup" onAction="#onShowBackup" prefHeight="55"/>
                 <Region HBox.hgrow="ALWAYS"/>
                 <Button text="⟳ Refresh" onAction="#onRefresh"/>
             </HBox>

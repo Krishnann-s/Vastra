@@ -11,6 +11,7 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.paint.Color;
+import javafx.stage.Stage;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -139,6 +140,11 @@ public class CustomerLedgerController {
         } catch (Exception e) {
             showError("Error recording payment: " + e.getMessage());
         }
+    }
+
+    @FXML
+    public void onBack() {
+        ((Stage) customerTable.getScene().getWindow()).close();
     }
 
     private void showError(String msg) {

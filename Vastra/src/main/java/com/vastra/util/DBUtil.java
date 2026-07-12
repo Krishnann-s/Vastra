@@ -3,6 +3,8 @@ package com.vastra.util;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.sql.ResultSet;
+import java.sql.PreparedStatement;
 
 public class DBUtil {
 
@@ -260,20 +262,57 @@ Don''t bargain', datetime('now'));
 
             // Payments received from customers against CREDIT sales
             s.execute("""
-    CREATE TABLE IF NOT EXISTS customer_payments(
-      id TEXT PRIMARY KEY,
-      customer_id TEXT NOT NULL,
-      sale_id TEXT,
-      amount_cents INTEGER NOT NULL,
-      payment_date TEXT,
-      payment_mode TEXT,
-      notes TEXT,
-      created_at TEXT,
-      FOREIGN KEY(customer_id) REFERENCES customers(id)
-    );
-""");
+                CREATE TABLE IF NOT EXISTS customer_payments(
+                  id TEXT PRIMARY KEY,
+                  customer_id TEXT NOT NULL,
+                  sale_id TEXT,
+                  amount_cents INTEGER NOT NULL,
+                  payment_date TEXT,
+                  payment_mode TEXT,
+                  notes TEXT,
+                  created_at TEXT,
+                  FOREIGN KEY(customer_id) REFERENCES customers(id)
+                );
+            """);
             s.execute("CREATE INDEX IF NOT EXISTS idx_return_items_sale_item ON return_items(sale_item_id);");
             s.execute("CREATE INDEX IF NOT EXISTS idx_customer_payments_customer ON customer_payments(customer_id);");
+
+            // Users table (login accounts - admins with passwords, cashiers with PINs)
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS users(
+                  id TEXT PRIMARY KEY,
+                  username TEXT UNIQUE NOT NULL,
+                  role TEXT NOT NULL,
+                  password_hash TEXT,
+                  password_salt TEXT,
+                  pin_hash TEXT,
+                  pin_salt TEXT,
+                  display_name TEXT,
+                  is_active INTEGER DEFAULT 1,
+                  created_at TEXT
+                );
+            """);
+
+            seedDefaultAdminIfNeeded(c);
+        }
+    }
+
+    private static void seedDefaultAdminIfNeeded(Connection c) throws Exception {
+        try (Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery("SELECT COUNT(*) FROM users WHERE role = 'ADMIN'")) {
+            if (rs.next() && rs.getInt(1) == 0) {
+                String[] hashAndSalt = PasswordUtil.hash("admin123");
+                String sql = """
+                    INSERT INTO users(id, username, role, password_hash, password_salt, display_name, is_active, created_at)
+                    VALUES (?, 'admin', 'ADMIN', ?, ?, 'Admin', 1, datetime('now'))
+                """;
+                try (PreparedStatement ps = c.prepareStatement(sql)) {
+                    ps.setString(1, java.util.UUID.randomUUID().toString());
+                    ps.setString(2, hashAndSalt[0]);
+                    ps.setString(3, hashAndSalt[1]);
+                    ps.executeUpdate();
+                }
+            }
         }
     }
 }

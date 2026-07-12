@@ -9,7 +9,11 @@
 
     <top>
         <VBox style="-fx-background-color: #607D8B; -fx-padding: 15;" spacing="5">
-            <Label text="Backup, Restore &amp; Excel Archive" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="← Back to Dashboard" onAction="#onBack"
+                        style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;"/>
+                <Label text="Backup, Restore &amp; Excel Archive" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            </HBox>
             <Label fx:id="lastBackupLabel" text="" style="-fx-font-size: 13px;"/>
         </VBox>
     </top>

@@ -7,9 +7,18 @@
             fx:controller="com.vastra.ui.controllers.CustomerLedgerController"
             stylesheets="@../css/styles.css" prefWidth="1000" prefHeight="650">
 
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="← Back to Dashboard" onAction="#onBack"
+                        style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;"/>
+                <Label text="Customer Ledger" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            </HBox>
+        </VBox>
+    </top>
+
     <left>
         <VBox spacing="10" style="-fx-padding: 15; -fx-pref-width: 320;">
-            <Label text="Customers" styleClass="label-header"/>
             <HBox spacing="8">
                 <TextField fx:id="searchField" promptText="Search name or phone" HBox.hgrow="ALWAYS"/>
                 <Button text="🔍" onAction="#onSearch"/>

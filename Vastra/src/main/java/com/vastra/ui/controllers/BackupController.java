@@ -10,11 +10,11 @@ import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import java.io.File;
 import java.time.LocalDate;
-import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -164,6 +164,11 @@ public class BackupController {
             e.printStackTrace();
             showError("Export failed: " + e.getMessage());
         }
+    }
+
+    @FXML
+    public void onBack() {
+        ((Stage) lastBackupLabel.getScene().getWindow()).close();
     }
 
     private String formatSize(long bytes) {

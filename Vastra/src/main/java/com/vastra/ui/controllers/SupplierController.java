@@ -208,6 +208,11 @@ public class SupplierController {
         }
     }
 
+    @FXML
+    public void onBack() {
+        ((Stage) supplierTable.getScene().getWindow()).close();
+    }
+
     private void showError(String msg) {
         Alert alert = new Alert(Alert.AlertType.ERROR, msg);
         alert.setHeaderText(null);

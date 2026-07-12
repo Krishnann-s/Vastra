@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.vastra.ui.controllers.LoginController"
+           style="-fx-background-color: linear-gradient(to bottom right, #1976D2, #0D47A1);">
+
+    <VBox alignment="CENTER" spacing="15" maxWidth="360" maxHeight="420"
+          style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 35;
+                 -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 8);">
+
+        <Label text="Vastra" style="-fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
+        <Label text="Sign in to continue" style="-fx-text-fill: #666; -fx-font-size: 13px;"/>
+
+        <ComboBox fx:id="roleCombo" maxWidth="Infinity" promptText="Select role"/>
+        <TextField fx:id="usernameField" promptText="Username" maxWidth="Infinity"/>
+
+        <StackPane>
+            <PasswordField fx:id="passwordField" promptText="Password" maxWidth="Infinity"/>
+            <PasswordField fx:id="pinField" promptText="4-digit PIN" maxWidth="Infinity" visible="false" managed="false"/>
+        </StackPane>
+
+        <Label fx:id="errorLabel" text="" style="-fx-text-fill: #D32F2F; -fx-font-size: 12px;" wrapText="true"/>
+
+        <Button text="Login" onAction="#onLogin" defaultButton="true"
+                style="-fx-background-color: #1976D2; -fx-text-fill: white; -fx-font-weight: bold;"
+                maxWidth="Infinity" prefHeight="42"/>
+    </VBox>
+</StackPane>

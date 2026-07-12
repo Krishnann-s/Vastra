@@ -52,6 +52,22 @@ public class MainController {
     @FXML private Label paymentReminderLabel;
     @FXML private Label backupReminderLabel;
     @FXML private TextField cashierNameField;
+    @FXML private TextField quickCustomerSearchField;
+    @FXML private TextField quickAddNameField;
+    @FXML private TextField quickAddPhoneField;
+    @FXML private MenuItem backupMenuItem;
+    @FXML private MenuItem addProductMenuItem;
+    @FXML private MenuItem printBarcodesMenuItem;
+    @FXML private MenuItem bulkImportMenuItem;
+    @FXML private Menu suppliersMenu;
+    @FXML private Menu reportsMenu;
+    @FXML private Menu toolsMenu;
+    @FXML private Button addProductToolbarBtn;
+    @FXML private Button printBarcodesToolbarBtn;
+    @FXML private Button suppliersToolbarBtn;
+    @FXML private Button backupToolbarBtn;
+    @FXML private Button reportsToolbarBtn;
+    @FXML private Button settingsToolbarBtn;
 
     private ObservableList<CartItem> cartItems = FXCollections.observableArrayList();
     private Customer currentCustomer = null;
@@ -81,6 +97,12 @@ public class MainController {
                 setupGlobalBarcodeListener();
             }
         });
+
+        if (cashierNameField != null) {
+            com.vastra.model.User currentUser = com.vastra.util.Session.getCurrentUser();
+            cashierNameField.setText(currentUser != null ? currentUser.getDisplayName() : "Unknown");
+        }
+        applyRoleGating();
     }
 
     private void setupCartTable() {
@@ -133,6 +155,43 @@ public class MainController {
 
         cartTable.setItems(cartItems);
         cartTable.setEditable(true);
+    }
+
+    /** Cashiers get a stripped-down POS screen - no inventory setup, no financial screens, no admin tools. */
+    private void applyRoleGating() {
+        boolean admin = com.vastra.util.Session.isAdmin();
+
+        if (backupMenuItem != null) backupMenuItem.setVisible(admin);
+        if (addProductMenuItem != null) addProductMenuItem.setVisible(admin);
+        if (printBarcodesMenuItem != null) printBarcodesMenuItem.setVisible(admin);
+        if (bulkImportMenuItem != null) bulkImportMenuItem.setVisible(admin);
+        if (suppliersMenu != null) suppliersMenu.setVisible(admin);
+        if (reportsMenu != null) reportsMenu.setVisible(admin);
+        if (toolsMenu != null) toolsMenu.setVisible(admin);
+
+        if (addProductToolbarBtn != null) { addProductToolbarBtn.setVisible(admin); addProductToolbarBtn.setManaged(admin); }
+        if (printBarcodesToolbarBtn != null) { printBarcodesToolbarBtn.setVisible(admin); printBarcodesToolbarBtn.setManaged(admin); }
+        if (suppliersToolbarBtn != null) { suppliersToolbarBtn.setVisible(admin); suppliersToolbarBtn.setManaged(admin); }
+        if (backupToolbarBtn != null) { backupToolbarBtn.setVisible(admin); backupToolbarBtn.setManaged(admin); }
+        if (reportsToolbarBtn != null) { reportsToolbarBtn.setVisible(admin); reportsToolbarBtn.setManaged(admin); }
+        if (settingsToolbarBtn != null) { settingsToolbarBtn.setVisible(admin); settingsToolbarBtn.setManaged(admin); }
+    }
+
+    @FXML
+    public void onLogout() {
+        com.vastra.util.Session.logout();
+        try {
+            javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/login.fxml"));
+            javafx.scene.Parent root = loader.load();
+            LoginController controller = loader.getController();
+            Stage stage = primaryStage != null ? primaryStage : (Stage) cartTable.getScene().getWindow();
+            controller.setStage(stage);
+            stage.setTitle("Vastra - Login");
+            com.vastra.util.WindowUtil.swapRoot(stage, root);
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error logging out: " + e.getMessage());
+        }
     }
 
     private void setupBarcodeScanner() {
@@ -320,52 +379,81 @@ public class MainController {
 
     @FXML
     public void onAddCustomer() {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Add Customer");
-        dialog.setHeaderText("Enter customer phone number");
-        dialog.setContentText("Phone:");
+        openCustomerSelectDialog(null);
+    }
 
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(phone -> {
-            try {
-                Customer customer = CustomerDAO.findByPhone(phone);
-                if (customer == null) {
-                    // Create new customer dialog
-                    Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
-                    confirmDialog.setTitle("New Customer");
-                    confirmDialog.setHeaderText("Customer not found");
-                    confirmDialog.setContentText("Create new customer with phone: " + phone + "?");
+    @FXML
+    public void onQuickCustomerSearch() {
+        String term = quickCustomerSearchField != null ? quickCustomerSearchField.getText() : null;
+        openCustomerSelectDialog(term);
+    }
 
-                    Optional<ButtonType> confirmResult = confirmDialog.showAndWait();
-                    if (confirmResult.isPresent() && confirmResult.get() == ButtonType.OK) {
-                        TextInputDialog nameDialog = new TextInputDialog();
-                        nameDialog.setTitle("Customer Name");
-                        nameDialog.setHeaderText("Enter customer name");
-                        nameDialog.setContentText("Name:");
-
-                        Optional<String> nameResult = nameDialog.showAndWait();
-                        if (nameResult.isPresent() && !nameResult.get().trim().isEmpty()) {
-                            customer = CustomerDAO.createCustomer(nameResult.get().trim(), phone, "");
-                            showSuccess("Customer created successfully!");
-                        }
-                    }
-                }
-
-                if (customer != null) {
-                    currentCustomer = customer;
-                    if (customerNameLabel != null) {
-                        customerNameLabel.setText(customer.getName());
-                    }
-                    if (customerPointsLabel != null) {
-                        customerPointsLabel.setText(String.format("%.2f points available", customer.getPoints()));
-                    }
-                }
-
-            } catch (Exception e) {
-                showError("Error loading customer: " + e.getMessage());
-                e.printStackTrace();
+    private void openCustomerSelectDialog(String initialSearchTerm) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/customer_select.fxml"));
+            Scene scene = new Scene(loader.load());
+            CustomerSelectController controller = loader.getController();
+            if (initialSearchTerm != null && !initialSearchTerm.isBlank()) {
+                controller.setInitialSearchTerm(initialSearchTerm.trim());
             }
-        });
+
+            Stage stage = new Stage();
+            stage.setTitle("Select Customer");
+            com.vastra.util.IconUtil.applyAppIcon(stage);
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(scene);
+            stage.showAndWait();
+
+            if (controller.isWalkInChosen()) {
+                currentCustomer = null;
+                if (customerNameLabel != null) customerNameLabel.setText("Walk-in Customer");
+                if (customerPointsLabel != null) customerPointsLabel.setText("0 points");
+            } else if (controller.getSelectedCustomer() != null) {
+                currentCustomer = controller.getSelectedCustomer();
+                if (customerNameLabel != null) customerNameLabel.setText(currentCustomer.getName());
+                if (customerPointsLabel != null) {
+                    customerPointsLabel.setText(String.format("%.2f points available", currentCustomer.getPoints()));
+                }
+            }
+            // else: dialog was closed (X button) without picking anyone - leave current selection as-is
+
+            if (quickCustomerSearchField != null) quickCustomerSearchField.clear();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening customer selection: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onQuickAddCustomer() {
+        String name = quickAddNameField != null && quickAddNameField.getText() != null ? quickAddNameField.getText().trim() : "";
+        String phone = quickAddPhoneField != null && quickAddPhoneField.getText() != null ? quickAddPhoneField.getText().trim() : "";
+
+        if (name.isEmpty() || phone.isEmpty()) {
+            showError("Enter both name and mobile number to quick-add a customer");
+            return;
+        }
+
+        try {
+            Customer customer = CustomerDAO.findByPhone(phone);
+            if (customer == null) {
+                customer = CustomerDAO.createCustomer(name, phone, "");
+            }
+
+            currentCustomer = customer;
+            if (customerNameLabel != null) customerNameLabel.setText(customer.getName());
+            if (customerPointsLabel != null) {
+                customerPointsLabel.setText(String.format("%.2f points available", customer.getPoints()));
+            }
+
+            quickAddNameField.clear();
+            quickAddPhoneField.clear();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error adding customer: " + e.getMessage());
+        }
     }
 
     @FXML
@@ -662,7 +750,7 @@ public class MainController {
      * straight to that supplier's ledger.
      */
     private void checkPaymentReminders() {
-        if (paymentReminderLabel == null) return;
+        if (paymentReminderLabel == null || !com.vastra.util.Session.isAdmin()) return;
         try {
             PayableReminder reminder = SupplierDAO.getNextPaymentReminder();
             if (reminder == null) {
@@ -704,7 +792,7 @@ public class MainController {
      */
     private void checkBackupReminder() {
         if (backupReminderLabel == null) return;
-        if (BackupUtil.wasBackedUpToday()) {
+        if (!com.vastra.util.Session.isAdmin() || BackupUtil.wasBackedUpToday()) {
             backupReminderLabel.setText("");
             backupReminderLabel.setVisible(false);
             backupReminderLabel.setManaged(false);
@@ -787,6 +875,7 @@ public class MainController {
 
     @FXML
     public void onShowSuppliers() {
+        if (!com.vastra.util.Session.requireAdmin()) return;
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/supplier.fxml"));
             Scene scene = new Scene(loader.load());
@@ -803,6 +892,7 @@ public class MainController {
 
     @FXML
     public void onShowBackup() {
+        if (!com.vastra.util.Session.requireAdmin()) return;
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/backup.fxml"));
             Scene scene = new Scene(loader.load());

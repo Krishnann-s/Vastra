@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.ManageUsersController"
+            prefWidth="1000" prefHeight="650">
+
+    <top>
+        <VBox style="-fx-background-color: #6A1B9A; -fx-padding: 15;">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="← Back to Dashboard" onAction="#onBack"
+                        style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;"/>
+                <Label text="Manage Users" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <left>
+        <VBox spacing="8" prefWidth="330">
+            <padding><Insets top="15" right="10" bottom="15" left="15"/></padding>
+
+            <Label text="My Account (Admin)" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+
+            <Label text="Username:" style="-fx-font-size: 11px; -fx-text-fill: #666;"/>
+            <TextField fx:id="myUsernameField" promptText="Username"/>
+
+            <Label text="Display Name:" style="-fx-font-size: 11px; -fx-text-fill: #666;"/>
+            <TextField fx:id="myDisplayNameField" promptText="Display Name"/>
+
+            <HBox spacing="8">
+                <Button text="💾 Save Profile" onAction="#onSaveMyProfile" style="-fx-background-color: #2196F3; -fx-text-fill: white;"/>
+                <Button text="🔒 Change Password" onAction="#onChangeMyPassword"/>
+            </HBox>
+
+            <Separator/>
+
+            <Label text="Add New Cashier" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+            <TextField fx:id="newUsernameField" promptText="* Username"/>
+            <TextField fx:id="newDisplayNameField" promptText="Display Name (shown on bills)"/>
+            <PasswordField fx:id="newPinField" promptText="* 4-digit PIN"/>
+            <Button text="+ Add Cashier" onAction="#onAddCashier" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
+
+            <Separator/>
+            <Label text="Note: additional Admin accounts can only be created directly in the database for now."
+                   wrapText="true" style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+        </VBox>
+    </left>
+
+    <center>
+        <VBox spacing="10">
+            <padding><Insets top="15" right="15" bottom="15" left="10"/></padding>
+
+            <Label text="Cashiers" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+            <TableView fx:id="cashierTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="usernameColumn" text="Username" prefWidth="120"/>
+                    <TableColumn fx:id="displayNameColumn" text="Display Name" prefWidth="150"/>
+                    <TableColumn fx:id="createdColumn" text="Added On" prefWidth="135"/>
+                    <TableColumn fx:id="actionColumn" text="Actions" prefWidth="200"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+</BorderPane>

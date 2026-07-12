@@ -9,7 +9,11 @@
 
     <top>
         <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
-            <Label text="Suppliers &amp; Dues" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="← Back to Dashboard" onAction="#onBack"
+                        style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;"/>
+                <Label text="Suppliers &amp; Dues" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            </HBox>
         </VBox>
     </top>
 

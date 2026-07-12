@@ -12,13 +12,15 @@
             <!-- Standard Menu Bar -->
             <MenuBar>
                 <Menu text="File">
-                    <MenuItem text="Backup &amp; Data" onAction="#onShowBackup"/>
+                    <MenuItem fx:id="backupMenuItem" text="Backup &amp; Data" onAction="#onShowBackup"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Logout" onAction="#onLogout"/>
                     <SeparatorMenuItem/>
                     <MenuItem text="Exit" onAction="#onExit"/>
                 </Menu>
                 <Menu text="Sales">
-                    <MenuItem text="Add Product (F1)" onAction="#onAddProduct"/>
-                    <MenuItem text="Print Barcodes" onAction="#onPrintBarcodes"/>
+                    <MenuItem fx:id="addProductMenuItem" text="Add Product (F1)" onAction="#onAddProduct"/>
+                    <MenuItem fx:id="printBarcodesMenuItem" text="Print Barcodes" onAction="#onPrintBarcodes"/>
                     <SeparatorMenuItem/>
                     <MenuItem text="Complete Sale (F3)" onAction="#onCompleteSale"/>
                     <MenuItem text="Hold Sale" onAction="#onHoldSale"/>
@@ -33,16 +35,16 @@
                 </Menu>
                 <Menu text="Inventory">
                     <MenuItem text="Low Stock Alert" onAction="#onShowLowStock"/>
-                    <MenuItem text="Bulk Import" onAction="#onBulkImport"/>
+                    <MenuItem fx:id="bulkImportMenuItem" text="Bulk Import" onAction="#onBulkImport"/>
                     <MenuItem text="Returns" onAction="#onShowReturns"/>
                 </Menu>
-                <Menu text="Suppliers">
+                <Menu fx:id="suppliersMenu" text="Suppliers">
                     <MenuItem text="Suppliers &amp; Dues" onAction="#onShowSuppliers"/>
                 </Menu>
-                <Menu text="Reports">
+                <Menu fx:id="reportsMenu" text="Reports">
                     <MenuItem text="Sales Reports" onAction="#onShowReports"/>
                 </Menu>
-                <Menu text="Tools">
+                <Menu fx:id="toolsMenu" text="Tools">
                     <MenuItem text="Settings" onAction="#onShowSettings"/>
                 </Menu>
             </MenuBar>
@@ -52,10 +54,10 @@
                 <Button text="🏠" onAction="#onShowDashboard" styleClass="toolbar-icon-btn">
                 <tooltip><Tooltip text="Dashboard"/></tooltip>
                 </Button>
-                <Button text="➕" onAction="#onAddProduct" styleClass="toolbar-icon-btn">
+                <Button fx:id="addProductToolbarBtn" text="➕" onAction="#onAddProduct" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Add Product (F1)"/></tooltip>
                 </Button>
-                <Button text="🖨️" onAction="#onPrintBarcodes" styleClass="toolbar-icon-btn">
+                <Button fx:id="printBarcodesToolbarBtn" text="🖨️" onAction="#onPrintBarcodes" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Print Barcodes"/></tooltip>
                 </Button>
                 <Separator orientation="VERTICAL"/>
@@ -66,21 +68,25 @@
                     <tooltip><Tooltip text="Redeem Points"/></tooltip>
                 </Button>
                 <Separator orientation="VERTICAL"/>
-                <Button text="🚚" onAction="#onShowSuppliers" styleClass="toolbar-icon-btn">
+                <Button fx:id="suppliersToolbarBtn" text="🚚" onAction="#onShowSuppliers" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Suppliers &amp; Dues"/></tooltip>
                 </Button>
-                <Button text="💾" onAction="#onShowBackup" styleClass="toolbar-icon-btn">
+                <Button fx:id="backupToolbarBtn" text="💾" onAction="#onShowBackup" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Backup &amp; Data"/></tooltip>
                 </Button>
                 <Separator orientation="VERTICAL"/>
-                <Button text="📊" onAction="#onShowReports" styleClass="toolbar-icon-btn">
+                <Button fx:id="reportsToolbarBtn" text="📊" onAction="#onShowReports" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Reports"/></tooltip>
                 </Button>
                 <Button text="⚠" onAction="#onShowLowStock" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Low Stock Alert"/></tooltip>
                 </Button>
-                <Button text="⚙" onAction="#onShowSettings" styleClass="toolbar-icon-btn">
+                <Button fx:id="settingsToolbarBtn" text="⚙" onAction="#onShowSettings" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Settings"/></tooltip>
+                </Button>
+                <Separator orientation="VERTICAL"/>
+                <Button text="🚪 Logout" onAction="#onLogout" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Logout"/></tooltip>
                 </Button>
             </ToolBar>
 
@@ -102,33 +108,7 @@
                 <Insets top="15" right="15" bottom="15" left="15"/>
             </padding>
 
-            <!-- Customer Information Panel -->
-            <HBox spacing="20" styleClass="customer-info-box">
-                <VBox spacing="5" HBox.hgrow="ALWAYS">
-                    <Label text="Customer:" style="-fx-font-size: 12px;"/>
-                    <Label fx:id="customerNameLabel"
-                           text="Walk-in Customer"
-                           style="-fx-font-weight: bold; -fx-font-size: 16px;"/>
-                </VBox>
-                <VBox spacing="5">
-                    <Label text="Loyalty Points:" style="-fx-font-size: 12px;"/>
-                    <Label fx:id="customerPointsLabel"
-                           text="0 points"
-                           style="-fx-font-weight: bold; -fx-font-size: 16px; -fx-text-fill: #4CAF50;"/>
-                </VBox>
-                <VBox spacing="5">
-                    <Label text="Cashier:" style="-fx-font-size: 12px;"/>
-                    <TextField fx:id="cashierNameField" text="Admin" prefWidth="140"
-                               style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
-                </VBox>
-                <Region HBox.hgrow="ALWAYS"/>
-                <VBox spacing="5" alignment="CENTER_RIGHT">
-                    <Label text="1 point = ₹1 discount" style="-fx-font-size: 11px; -fx-text-fill: #666;"/>
-                    <Label text="Earn 1 point per ₹100 spent" style="-fx-font-size: 11px; -fx-text-fill: #666;"/>
-                </VBox>
-            </HBox>
-
-            <!-- Cart Table -->
+            <!-- Cart Table - now the primary section, gets the most room -->
             <VBox spacing="5" VBox.vgrow="ALWAYS">
                 <Label text="SHOPPING CART"
                        style="-fx-font-size: 14px; -fx-font-weight: bold;"/>
@@ -148,20 +128,22 @@
                 </TableView>
             </VBox>
 
-            <!-- Totals and Actions Section -->
+            <!-- Bottom row: Actions | Customer Info | Totals -->
             <HBox spacing="20">
-                <!-- Left side - Actions -->
-                <VBox spacing="10" HBox.hgrow="ALWAYS">
+                <!-- Left - Actions -->
+                <VBox spacing="8" prefWidth="300">
                     <Label text="ACTIONS" style="-fx-font-weight: bold;"/>
-                    <HBox spacing="10">
-                        <Button text="🗑 Clear Cart (F4)"
+                    <HBox spacing="8">
+                        <Button text="Clear (F4)"
                                 onAction="#onClearCart"
                                 styleClass="button-danger"
-                                prefWidth="150"/>
-                        <Button text="⏸ Hold Sale"
+                                prefWidth="110"
+                                style="-fx-font-size: 12px;"/>
+                        <Button text="Hold Sale"
                                 onAction="#onHoldSale"
                                 styleClass="button-secondary"
-                                prefWidth="150"/>
+                                prefWidth="110"
+                                style="-fx-font-size: 12px;"/>
                     </HBox>
                     <HBox spacing="10">
                         <Label text="Manual Discount (₹):" style="-fx-padding: 5 0 0 0;"/>
@@ -170,10 +152,48 @@
                                    prefWidth="100"
                                    promptText="0.00"/>
                     </HBox>
+
+                    <Separator/>
+                    <Label text="QUICK CUSTOMER" style="-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #666;"/>
+                    <HBox spacing="6">
+                        <TextField fx:id="quickCustomerSearchField" promptText="Search name/mobile..."
+                                   HBox.hgrow="ALWAYS" onAction="#onQuickCustomerSearch"/>
+                        <Button text="🔍" onAction="#onQuickCustomerSearch"/>
+                    </HBox>
+                    <HBox spacing="6">
+                        <TextField fx:id="quickAddNameField" promptText="New: Name" prefWidth="110"/>
+                        <TextField fx:id="quickAddPhoneField" promptText="Mobile" prefWidth="100"/>
+                    </HBox>
+                    <Button text="+ Add &amp; Use Customer" onAction="#onQuickAddCustomer"
+                            style="-fx-background-color: #2196F3; -fx-text-fill: white;" maxWidth="Infinity"/>
                 </VBox>
 
-                <!-- Right side - Totals -->
-                <VBox spacing="8" styleClass="totals-box" minWidth="300">
+                <!-- Middle - Customer Info (moved here from the top banner) -->
+                <VBox spacing="8" styleClass="customer-info-box" prefWidth="300">
+                    <Label text="Customer" style="-fx-font-size: 12px; -fx-text-fill: #0D47A1;"/>
+                    <Label fx:id="customerNameLabel"
+                           text="Walk-in Customer"
+                           style="-fx-font-weight: bold; -fx-font-size: 18px;"/>
+                    <HBox spacing="20">
+                        <VBox spacing="2">
+                            <Label text="Loyalty Points" style="-fx-font-size: 11px; -fx-text-fill: #0D47A1;"/>
+                            <Label fx:id="customerPointsLabel"
+                                   text="0 points"
+                                   style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #4CAF50;"/>
+                        </VBox>
+                        <VBox spacing="2">
+                            <Label text="Cashier" style="-fx-font-size: 11px; -fx-text-fill: #0D47A1;"/>
+                            <TextField fx:id="cashierNameField" text="Admin" prefWidth="120" editable="false"
+                                       style="-fx-font-weight: bold; -fx-font-size: 13px; -fx-background-color: #eee;"/>
+                        </VBox>
+                    </HBox>
+                    <Region VBox.vgrow="ALWAYS"/>
+                    <Label text="1 point = ₹1 discount · Earn 1 point per ₹100 spent"
+                           wrapText="true" style="-fx-font-size: 10px; -fx-text-fill: #666;"/>
+                </VBox>
+
+                <!-- Right - Totals -->
+                <VBox spacing="8" styleClass="totals-box" HBox.hgrow="ALWAYS" minWidth="300">
                     <HBox spacing="10">
                         <Label text="Subtotal:" styleClass="subtotal-label" HBox.hgrow="ALWAYS"/>
                         <Label fx:id="subtotalLabel"
