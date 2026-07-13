@@ -1,6 +1,7 @@
 package com.vastra;
 
 import com.vastra.ui.controllers.LoginController;
+import com.vastra.util.AutoBackupUtil;
 import com.vastra.util.DBUtil;
 import com.vastra.util.IconUtil;
 import javafx.application.Application;
@@ -23,6 +24,14 @@ public class MainApp extends Application {
         stage.setTitle("Vastra - Login");
         stage.setScene(new Scene(root));
         IconUtil.applyAppIcon(stage);
+
+        // Auto-backup checkpoint #1: shortly after opening the app (background thread,
+        // so it never delays login or the first screen appearing).
+        AutoBackupUtil.runOnStartupIfDue();
+
+        // Auto-backup checkpoint #2: just before the window actually closes, as a
+        // safety net for a shop that's left the app running all day.
+        stage.setOnCloseRequest(event -> AutoBackupUtil.runOnShutdownIfDue());
 
         // This is the ONLY place a real Scene gets created and the ONLY
         // place setMaximized is called - every screen after this reuses the

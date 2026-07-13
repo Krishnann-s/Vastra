@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.vastra</groupId>
@@ -14,14 +14,14 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
-    <javafx.version>20</javafx.version>
+    <javafx.version>21.0.2</javafx.version>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
     <!-- JavaFX -->
@@ -58,7 +58,7 @@
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-swing</artifactId>
-      <version>21.0.2</version> <!-- or your JavaFX version -->
+      <version>${javafx.version}</version>
     </dependency>
 
     <!-- Apache POI (for Excel import/export later) -->
@@ -79,6 +79,59 @@
         <configuration>
           <source>${maven.compiler.source}</source>
           <target>${maven.compiler.target}</target>
+        </configuration>
+      </plugin>
+
+      <!-- Test runner -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <!-- Redirects DBUtil at an isolated test database file (see DBUtil.DB_FILE_PATH) so
+               tests never read or write your real shop database in db/vastra.db -->
+          <systemPropertyVariables>
+            <vastra.db.path>target/test-db/vastra_test.db</vastra.db.path>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
+      <!-- Copies every runtime dependency jar into target/dependency/ so jpackage
+           can bundle them alongside the app jar - see installer/build-installer.bat -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/dependency</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Makes target/Vastra-1.0.jar directly runnable with `java -jar` (and therefore
+           jpackage-able) by writing Main-Class and a Class-Path into its manifest that
+           points at the dependency/ folder above - no need for a separate "fat jar". -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.vastra.MainApp</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>dependency/</classpathPrefix>
+            </manifest>
+          </archive>
         </configuration>
       </plugin>
 

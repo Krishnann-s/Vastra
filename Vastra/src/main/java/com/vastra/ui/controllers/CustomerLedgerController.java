@@ -35,8 +35,18 @@ public class CustomerLedgerController {
     @FXML private TableColumn<CustomerLedgerEntry, Double> ledgerCreditColumn;
     @FXML private TableColumn<CustomerLedgerEntry, Double> ledgerBalanceColumn;
 
+    @FXML private Label frequentItemsLabel;
+    @FXML private TableView<com.vastra.model.PurchaseHistoryRow> purchaseHistoryTable;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, String> phDateColumn;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, String> phBillColumn;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, String> phProductColumn;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, Number> phQtyColumn;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, Number> phPriceColumn;
+    @FXML private TableColumn<com.vastra.model.PurchaseHistoryRow, Number> phTotalColumn;
+
     private final ObservableList<Customer> customers = FXCollections.observableArrayList();
     private final ObservableList<CustomerLedgerEntry> ledgerEntries = FXCollections.observableArrayList();
+    private final ObservableList<com.vastra.model.PurchaseHistoryRow> purchaseHistory = FXCollections.observableArrayList();
     private Customer selectedCustomer;
 
     @FXML
@@ -65,6 +75,18 @@ public class CustomerLedgerController {
         ledgerBalanceColumn.setCellValueFactory(d -> new SimpleDoubleProperty(d.getValue().getRunningBalance()).asObject());
         ledgerTable.setItems(ledgerEntries);
 
+        phDateColumn.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDate()));
+        phBillColumn.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBillNumber()));
+        phProductColumn.setCellValueFactory(d -> {
+            String name = d.getValue().getProductName();
+            String variant = d.getValue().getVariant();
+            return new SimpleStringProperty(variant != null && !variant.isBlank() ? name + " - " + variant : name);
+        });
+        phQtyColumn.setCellValueFactory(d -> new SimpleDoubleProperty(d.getValue().getQuantity()));
+        phPriceColumn.setCellValueFactory(d -> new SimpleDoubleProperty(d.getValue().getUnitPrice()));
+        phTotalColumn.setCellValueFactory(d -> new SimpleDoubleProperty(d.getValue().getLineTotal()));
+        purchaseHistoryTable.setItems(purchaseHistory);
+
         refreshCustomerList();
     }
 
@@ -86,9 +108,27 @@ public class CustomerLedgerController {
             int dueCents = CustomerDAO.getCurrentDueCents(customer.getId());
             totalDueLabel.setText(String.format("Currently owes: \u20B9%.2f", dueCents / 100.0));
             ledgerEntries.setAll(CustomerDAO.getLedger(customer.getId()));
+
+            List<com.vastra.model.PurchaseHistoryRow> history = CustomerDAO.getPurchaseHistory(customer.getId());
+            purchaseHistory.setAll(history);
+            frequentItemsLabel.setText(buildFrequentItemsSummary(history));
         } catch (Exception e) {
             showError("Error loading ledger: " + e.getMessage());
         }
+    }
+
+    /** "Buys most: Cotton Shirt (5), Jeans (3), ..." - top 3 products by total quantity bought. */
+    private String buildFrequentItemsSummary(List<com.vastra.model.PurchaseHistoryRow> history) {
+        if (history.isEmpty()) return "";
+        java.util.Map<String, Integer> qtyByProduct = new java.util.LinkedHashMap<>();
+        for (com.vastra.model.PurchaseHistoryRow row : history) {
+            qtyByProduct.merge(row.getProductName(), row.getQuantity(), Integer::sum);
+        }
+        return qtyByProduct.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .limit(3)
+                .map(e -> e.getKey() + " (" + e.getValue() + ")")
+                .collect(java.util.stream.Collectors.joining(", ", "Buys most: ", ""));
     }
 
     @FXML

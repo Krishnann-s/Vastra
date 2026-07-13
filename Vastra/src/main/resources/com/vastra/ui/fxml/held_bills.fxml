@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.HeldBillsController"
+            prefWidth="800" prefHeight="500">
+
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <Label text="Held Bills" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <Label text="Select a bill and click Resume to bring it back into the cart."
+                   style="-fx-text-fill: rgba(255,255,255,0.85); -fx-font-size: 12px;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="10">
+            <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+            <TableView fx:id="heldBillsTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="labelColumn" text="Label" prefWidth="160"/>
+                    <TableColumn fx:id="customerColumn" text="Customer" prefWidth="140"/>
+                    <TableColumn fx:id="itemsColumn" text="Items" prefWidth="70"/>
+                    <TableColumn fx:id="totalColumn" text="Est. Total (₹)" prefWidth="120"/>
+                    <TableColumn fx:id="heldByColumn" text="Held By" prefWidth="110"/>
+                    <TableColumn fx:id="heldAtColumn" text="Held At" prefWidth="160"/>
+                </columns>
+                <placeholder>
+                    <Label text="No held bills right now" style="-fx-text-fill: #999;"/>
+                </placeholder>
+            </TableView>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10; -fx-background-color: #f5f5f5;">
+            <Button text="Delete" onAction="#onDelete" style="-fx-background-color: #F44336; -fx-text-fill: white;"/>
+            <Button text="▶ Resume" onAction="#onResume" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"/>
+            <Button text="Close" onAction="#onClose"/>
+        </HBox>
+    </bottom>
+</BorderPane>

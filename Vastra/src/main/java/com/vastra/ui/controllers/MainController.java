@@ -38,6 +38,7 @@ public class MainController {
     @FXML private TableColumn<CartItem, String> nameColumn;
     @FXML private TableColumn<CartItem, Integer> qtyColumn;
     @FXML private TableColumn<CartItem, Double> priceColumn;
+    @FXML private TableColumn<CartItem, Integer> itemDiscountColumn;
     @FXML private TableColumn<CartItem, Double> taxColumn;
     @FXML private TableColumn<CartItem, Double> totalColumn;
     @FXML private TableColumn<CartItem, Void> actionColumn;
@@ -45,6 +46,7 @@ public class MainController {
     @FXML private Label totalLabel;
     @FXML private Label subtotalLabel;
     @FXML private Label taxLabel;
+    @FXML private Label discountTotalLabel;
     @FXML private Label customerNameLabel;
     @FXML private Label customerPointsLabel;
     @FXML private TextField discountField;
@@ -52,6 +54,7 @@ public class MainController {
     @FXML private Label paymentReminderLabel;
     @FXML private Label backupReminderLabel;
     @FXML private TextField cashierNameField;
+    @FXML private Button holdSaleButton;
     @FXML private TextField quickCustomerSearchField;
     @FXML private TextField quickAddNameField;
     @FXML private TextField quickAddPhoneField;
@@ -75,26 +78,29 @@ public class MainController {
     private BarcodeScanner barcodeScanner;
     private Stage primaryStage; // Store reference to main stage for focus handling
     private SaleReceiptData lastCompletedSale;
+    private String currencySymbol = "\u20B9";
 
     @FXML
     public void initialize() {
+        currencySymbol = com.vastra.util.CurrencyUtil.symbol();
         setupCartTable();
         setupBarcodeScanner();
-        setupKeyboardShortcuts();
         checkLowStockAlerts();
         checkPaymentReminders();
         checkBackupReminder();
+        refreshHeldBillsIndicator();
 
         if (discountField != null) {
             discountField.setText("0");
             discountField.textProperty().addListener((obs, old, newVal) -> updateTotals());
         }
 
-        // Setup global key listener for barcode scanner
+        // Setup global key listener for barcode scanner, and F-key shortcuts
         Platform.runLater(() -> {
             if (cartTable != null && cartTable.getScene() != null) {
                 primaryStage = (Stage) cartTable.getScene().getWindow();
                 setupGlobalBarcodeListener();
+                setupKeyboardShortcuts();
             }
         });
 
@@ -128,6 +134,24 @@ public class MainController {
 
         priceColumn.setCellValueFactory(data ->
                 new SimpleDoubleProperty(data.getValue().getProduct().getSellPrice()).asObject());
+
+        // Per-item discount, editable in rupees (stored internally as paise/cents)
+        itemDiscountColumn.setCellValueFactory(data ->
+                new SimpleIntegerProperty((int) Math.round(data.getValue().getDiscount())).asObject());
+        itemDiscountColumn.setCellFactory(TextFieldTableCell.forTableColumn(new IntegerStringConverter()));
+        itemDiscountColumn.setOnEditCommit(event -> {
+            CartItem item = event.getRowValue();
+            int newDiscountRupees = event.getNewValue() != null ? event.getNewValue() : 0;
+            int lineSubtotalRupees = (int) item.getSubtotal();
+            if (newDiscountRupees < 0 || newDiscountRupees > lineSubtotalRupees) {
+                showError("Discount must be between " + currencySymbol + "0 and the line total (" + currencySymbol + lineSubtotalRupees + ")");
+                cartTable.refresh();
+                return;
+            }
+            item.setDiscountCents(newDiscountRupees * 100);
+            updateTotals();
+            cartTable.refresh();
+        });
 
         taxColumn.setCellValueFactory(data ->
                 new SimpleDoubleProperty(data.getValue().getTaxAmount()).asObject());
@@ -243,11 +267,21 @@ public class MainController {
     }
 
     private void setupKeyboardShortcuts() {
-        // F1 - Add Product
+        if (primaryStage == null || primaryStage.getScene() == null) return;
+        var accelerators = primaryStage.getScene().getAccelerators();
+
+        // F1 - Add Product (admin only, matches the toolbar/menu item's own visibility)
+        accelerators.put(javafx.scene.input.KeyCombination.keyCombination("F1"), () -> {
+            if (com.vastra.util.Session.isAdmin()) onAddProduct();
+        });
         // F2 - Add Customer
+        accelerators.put(javafx.scene.input.KeyCombination.keyCombination("F2"), this::onAddCustomer);
         // F3 - Complete Sale
+        accelerators.put(javafx.scene.input.KeyCombination.keyCombination("F3"), this::onCompleteSale);
         // F4 - Clear Cart
-        // ESC - Clear current field
+        accelerators.put(javafx.scene.input.KeyCombination.keyCombination("F4"), this::onClearCart);
+        // F5 - Hold Sale
+        accelerators.put(javafx.scene.input.KeyCombination.keyCombination("F5"), this::onHoldSale);
     }
 
     /**
@@ -290,7 +324,7 @@ public class MainController {
 
             // Show quick feedback
             System.out.println("✓ Added: " + product.getFullDisplayName() +
-                    " | Price: ₹" + product.getSellPrice() +
+                    " | Price: " + currencySymbol + product.getSellPrice() +
                     " | Stock: " + product.getStock());
 
         } catch (Exception e) {
@@ -321,27 +355,153 @@ public class MainController {
     private void updateTotals() {
         double subtotal = 0;
         double tax = 0;
+        double itemDiscounts = 0;
 
         for (CartItem item : cartItems) {
             subtotal += item.getSubtotal();
             tax += item.getTaxAmount();
+            itemDiscounts += item.getDiscount();
         }
 
-        double discount = 0;
+        double billDiscount = 0;
         try {
             if (discountField != null && !discountField.getText().isEmpty()) {
-                discount = Double.parseDouble(discountField.getText());
+                billDiscount = Double.parseDouble(discountField.getText());
             }
         } catch (NumberFormatException e) {
-            discount = 0;
+            billDiscount = 0;
             discountField.setText("0");
         }
 
-        double total = subtotal - discount;
+        double totalDiscount = itemDiscounts + billDiscount;
+        double total = subtotal - totalDiscount;
 
-        if (subtotalLabel != null) subtotalLabel.setText(String.format("₹%.2f", subtotal));
-        if (taxLabel != null) taxLabel.setText(String.format("₹%.2f", tax));
-        if (totalLabel != null) totalLabel.setText(String.format("₹%.2f", total));
+        if (subtotalLabel != null) subtotalLabel.setText(currencySymbol + String.format("%.2f", subtotal));
+        if (taxLabel != null) taxLabel.setText(currencySymbol + String.format("%.2f", tax));
+        if (discountTotalLabel != null) discountTotalLabel.setText("- " + currencySymbol + String.format("%.2f", totalDiscount));
+        if (totalLabel != null) totalLabel.setText(currencySymbol + String.format("%.2f", total));
+    }
+
+    /** Same math as updateTotals(), but returns the number directly instead of formatting a label. */
+    private double computeCurrentTotal() {
+        double subtotal = 0;
+        double itemDiscounts = 0;
+        for (CartItem item : cartItems) {
+            subtotal += item.getSubtotal();
+            itemDiscounts += item.getDiscount();
+        }
+        double billDiscount = 0;
+        try {
+            if (discountField != null && !discountField.getText().isEmpty()) {
+                billDiscount = Double.parseDouble(discountField.getText());
+            }
+        } catch (NumberFormatException ignored) { }
+        return subtotal - itemDiscounts - billDiscount;
+    }
+
+    /**
+     * Payment dialog: either a normal cash/card/UPI split that must add up to the total,
+     * or a CREDIT (pay later) sale. Returns empty if the cashier cancels.
+     */
+    private Optional<List<com.vastra.model.SplitPayment>> showPaymentDialog(double total) {
+        Dialog<List<com.vastra.model.SplitPayment>> dialog = new Dialog<>();
+        dialog.setTitle("Payment");
+        dialog.setHeaderText("Total to collect: " + currencySymbol + String.format("%.2f", total));
+
+        ButtonType payButtonType = new ButtonType("Confirm Payment", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(payButtonType, ButtonType.CANCEL);
+
+        TextField cashField = new TextField(String.format("%.2f", total));
+        TextField cardField = new TextField("0.00");
+        TextField upiField = new TextField("0.00");
+        CheckBox creditCheck = new CheckBox("Mark as CREDIT (pay later) - no payment collected now");
+
+        cashField.disableProperty().bind(creditCheck.selectedProperty());
+        cardField.disableProperty().bind(creditCheck.selectedProperty());
+        upiField.disableProperty().bind(creditCheck.selectedProperty());
+
+        Label remainingLabel = new Label();
+        Runnable updateRemaining = () -> {
+            if (creditCheck.isSelected()) {
+                remainingLabel.setText("No payment collected now - full amount goes to customer dues");
+                remainingLabel.setStyle("-fx-text-fill: #856404;");
+                return;
+            }
+            try {
+                double c = cashField.getText().isBlank() ? 0 : Double.parseDouble(cashField.getText());
+                double cd = cardField.getText().isBlank() ? 0 : Double.parseDouble(cardField.getText());
+                double u = upiField.getText().isBlank() ? 0 : Double.parseDouble(upiField.getText());
+                double remaining = total - (c + cd + u);
+                if (Math.abs(remaining) < 0.01) {
+                    remainingLabel.setText("✓ Fully covered");
+                    remainingLabel.setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
+                } else {
+                    remainingLabel.setText("Remaining: " + currencySymbol + String.format("%.2f", remaining));
+                    remainingLabel.setStyle("-fx-text-fill: #D32F2F; -fx-font-weight: bold;");
+                }
+            } catch (NumberFormatException e) {
+                remainingLabel.setText("Enter valid numbers");
+                remainingLabel.setStyle("-fx-text-fill: #D32F2F;");
+            }
+        };
+        cashField.textProperty().addListener((o, ov, nv) -> updateRemaining.run());
+        cardField.textProperty().addListener((o, ov, nv) -> updateRemaining.run());
+        upiField.textProperty().addListener((o, ov, nv) -> updateRemaining.run());
+        creditCheck.selectedProperty().addListener((o, ov, nv) -> updateRemaining.run());
+        updateRemaining.run();
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(15));
+        grid.add(new Label("Cash (" + currencySymbol + "):"), 0, 0); grid.add(cashField, 1, 0);
+        grid.add(new Label("Card (" + currencySymbol + "):"), 0, 1); grid.add(cardField, 1, 1);
+        grid.add(new Label("UPI (" + currencySymbol + "):"), 0, 2); grid.add(upiField, 1, 2);
+        grid.add(remainingLabel, 1, 3);
+        grid.add(new Separator(), 0, 4, 2, 1);
+        grid.add(creditCheck, 0, 5, 2, 1);
+        dialog.getDialogPane().setContent(grid);
+
+        Button payBtn = (Button) dialog.getDialogPane().lookupButton(payButtonType);
+        payBtn.addEventFilter(javafx.event.ActionEvent.ACTION, event -> {
+            if (creditCheck.isSelected()) return; // no amount validation needed for credit
+            try {
+                double c = cashField.getText().isBlank() ? 0 : Double.parseDouble(cashField.getText());
+                double cd = cardField.getText().isBlank() ? 0 : Double.parseDouble(cardField.getText());
+                double u = upiField.getText().isBlank() ? 0 : Double.parseDouble(upiField.getText());
+                if (c < 0 || cd < 0 || u < 0) {
+                    showError("Amounts cannot be negative");
+                    event.consume();
+                    return;
+                }
+                if (Math.abs((c + cd + u) - total) > 0.01) {
+                    showError("Cash + Card + UPI must add up to the total (" + currencySymbol + String.format("%.2f", total) + ")");
+                    event.consume();
+                }
+            } catch (NumberFormatException e) {
+                showError("Enter valid amounts");
+                event.consume();
+            }
+        });
+
+        dialog.setResultConverter(bt -> {
+            if (bt != payButtonType) return null;
+            List<com.vastra.model.SplitPayment> result = new ArrayList<>();
+            if (creditCheck.isSelected()) {
+                result.add(new com.vastra.model.SplitPayment("CREDIT", (int) Math.round(total * 100)));
+                return result;
+            }
+            double c = Double.parseDouble(cashField.getText());
+            double cd = Double.parseDouble(cardField.getText());
+            double u = Double.parseDouble(upiField.getText());
+            if (c > 0) result.add(new com.vastra.model.SplitPayment("CASH", (int) Math.round(c * 100)));
+            if (cd > 0) result.add(new com.vastra.model.SplitPayment("CARD", (int) Math.round(cd * 100)));
+            if (u > 0) result.add(new com.vastra.model.SplitPayment("UPI", (int) Math.round(u * 100)));
+            if (result.isEmpty()) result.add(new com.vastra.model.SplitPayment("CASH", 0));
+            return result;
+        });
+
+        return dialog.showAndWait();
     }
 
     @FXML
@@ -357,6 +517,22 @@ public class MainController {
         } catch (Exception e) {
             e.printStackTrace();
             showError("Error opening customer ledger: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onShowStockMatrix() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/stock_matrix.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Stock Matrix");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening stock matrix: " + e.getMessage());
         }
     }
 
@@ -470,7 +646,7 @@ public class MainController {
 
         TextInputDialog dialog = new TextInputDialog("100");
         dialog.setTitle("Redeem Points");
-        dialog.setHeaderText(String.format("Customer has %.2f points\n1 point = ₹1 discount", currentCustomer.getPoints()));
+        dialog.setHeaderText(String.format("Customer has %.2f points\n1 point = " + currencySymbol + "1 discount", currentCustomer.getPoints()));
         dialog.setContentText("Points to redeem:");
 
         Optional<String> result = dialog.showAndWait();
@@ -516,13 +692,9 @@ public class MainController {
             return;
         }
 
-        // Select payment method
-        ChoiceDialog<String> paymentDialog = new ChoiceDialog<>("CASH", "CASH", "CARD", "UPI", "CREDIT", "OTHER");
-        paymentDialog.setTitle("Payment Method");
-        paymentDialog.setHeaderText("Select payment method");
-
-        Optional<String> paymentResult = paymentDialog.showAndWait();
-        if (!paymentResult.isPresent()) return;
+        double currentTotal = computeCurrentTotal();
+        Optional<List<com.vastra.model.SplitPayment>> paymentResult = showPaymentDialog(currentTotal);
+        if (paymentResult.isEmpty()) return;
 
         try {
             int discountCents = 0;
@@ -579,28 +751,7 @@ public class MainController {
 
     private void printBill(SaleReceiptData receipt) {
         try {
-            // Since SaleReceiptData stores strings instead of a Customer object,
-            // we create a temporary Customer object for the printer to use.
-            com.vastra.model.Customer customer = null;
-            if (receipt.isHasCustomer()) {
-                customer = new com.vastra.model.Customer();
-                // Note: If your Customer class uses different setters (e.g., setCustomerName), adjust these two lines:
-                customer.setName(receipt.getCustomerName());
-                customer.setPhone(receipt.getCustomerPhone());
-            }
-
-            // Now we pass the exact names from your SaleReceiptData class
-            boolean printed = ThermalPrinterUtil.printReceipt(
-                    receipt.getBillNumber(),    // Fixed name
-                    receipt.getItems(),
-                    customer,                   // Passing the temporary customer object we made above
-                    receipt.getSubtotal(),
-                    receipt.getTax(),
-                    receipt.getDiscount(),
-                    receipt.getTotal(),
-                    receipt.getPaymentMode()    // Fixed name
-            );
-
+            boolean printed = ThermalPrinterUtil.printReceipt(receipt);
             if (!printed) {
                 showWarning("Bill could not be printed. Please check printer connection.");
             }
@@ -708,22 +859,31 @@ public class MainController {
     @FXML
     public void onShowLowStock() {
         try {
-            List<Product> lowStockProducts = ProductDAO.getLowStockProducts();
-            if (lowStockProducts.isEmpty()) {
+            List<com.vastra.model.LowStockSuggestion> suggestions = ProductDAO.getLowStockWithSuggestions();
+            if (suggestions.isEmpty()) {
                 showInfo("No low stock items");
                 return;
             }
 
-            StringBuilder sb = new StringBuilder("Low Stock Items:\n\n");
-            for (Product p : lowStockProducts) {
-                sb.append(String.format("%s - Stock: %d (Min: %d)\n",
-                        p.getFullDisplayName(), p.getStock(), p.getReorderThreshold()));
+            StringBuilder sb = new StringBuilder("Low Stock Items - suggested reorder quantities:\n\n");
+            for (com.vastra.model.LowStockSuggestion s : suggestions) {
+                Product p = s.getProduct();
+                String velocityNote = s.getSoldLast30Days() > 0
+                        ? s.getSoldLast30Days() + " sold in last 30 days"
+                        : "no recent sales - estimate only";
+                sb.append(String.format("%s  |  Stock: %d (Min: %d)  |  Suggest ordering: %d  (%s)\n",
+                        p.getFullDisplayName(), p.getStock(), p.getReorderThreshold(),
+                        s.getSuggestedReorderQty(), velocityNote));
             }
 
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.setTitle("Low Stock Alert");
             alert.setHeaderText("Items need restocking");
-            alert.setContentText(sb.toString());
+            alert.getDialogPane().setContent(new TextArea(sb.toString()) {{
+                setEditable(false);
+                setWrapText(true);
+                setPrefSize(560, 320);
+            }});
             alert.showAndWait();
 
         } catch (Exception e) {
@@ -763,13 +923,13 @@ public class MainController {
             String message;
             String style;
             if (reminder.isOverdue()) {
-                message = String.format("⚠ PAYMENT OVERDUE: %s — ₹%.2f owed, was due %s (%d day%s overdue). Click to view.",
+                message = String.format("⚠ PAYMENT OVERDUE: %s — " + currencySymbol + "%.2f owed, was due %s (%d day%s overdue). Click to view.",
                         reminder.getSupplierName(), reminder.getAmountDue(), reminder.getNextDueDate(),
                         reminder.getDaysDiff(), reminder.getDaysDiff() == 1 ? "" : "s");
                 style = "-fx-text-fill: white; -fx-background-color: #D32F2F; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-cursor: hand;";
             } else {
                 long daysUntil = -reminder.getDaysDiff();
-                message = String.format("💰 Next payment due: %s — ₹%.2f due on %s (in %d day%s). Click to view.",
+                message = String.format("💰 Next payment due: %s — " + currencySymbol + "%.2f due on %s (in %d day%s). Click to view.",
                         reminder.getSupplierName(), reminder.getAmountDue(), reminder.getNextDueDate(),
                         daysUntil, daysUntil == 1 ? "" : "s");
                 style = "-fx-text-fill: #333; -fx-background-color: #FFF3CD; -fx-font-weight: bold; -fx-padding: 6 12 6 12; -fx-cursor: hand;";
@@ -817,10 +977,138 @@ public class MainController {
 
     // Stub methods for future implementation
     @FXML public void onBulkImport() { showInfo("Bulk Import - Coming Soon!"); }
-    @FXML public void onShowReports() { showInfo("Reports - Coming Soon!"); }
-    @FXML public void onShowSettings() { showInfo("Settings - Coming Soon!"); }
     @FXML public void onAddItemManually() { showInfo("Add Item Manually - Coming Soon!"); }
-    @FXML public void onHoldSale() { showInfo("Hold Sale - Coming Soon!"); }
+
+    @FXML
+    public void onHoldSale() {
+        if (cartItems.isEmpty()) {
+            showError("Cart is empty - nothing to hold");
+            return;
+        }
+
+        TextInputDialog labelDialog = new TextInputDialog(
+                currentCustomer != null ? currentCustomer.getName() : "");
+        labelDialog.setTitle("Hold Sale");
+        labelDialog.setHeaderText("Park this cart so you can serve someone else, then come back to it.");
+        labelDialog.setContentText("Label (optional, e.g. customer name):");
+        Optional<String> labelResult = labelDialog.showAndWait();
+        if (labelResult.isEmpty()) return;
+
+        try {
+            double billDiscount = 0;
+            try {
+                if (discountField != null && !discountField.getText().isEmpty()) {
+                    billDiscount = Double.parseDouble(discountField.getText());
+                }
+            } catch (NumberFormatException ignored) { }
+            int discountCents = (int) Math.round(billDiscount * 100);
+
+            String heldBy = (cashierNameField != null && !cashierNameField.getText().isBlank())
+                    ? cashierNameField.getText().trim() : "Admin";
+            String custId = currentCustomer != null ? currentCustomer.getId() : null;
+            String custName = currentCustomer != null ? currentCustomer.getName() : null;
+
+            com.vastra.dao.HeldBillDAO.holdBill(labelResult.get().trim(), custId, custName,
+                    new ArrayList<>(cartItems), discountCents, heldBy);
+
+            clearCart();
+            refreshHeldBillsIndicator();
+            showSuccess("Sale held. Use \"Resume Held Bill\" to bring it back.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Could not hold sale: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onShowHeldBills() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/held_bills.fxml"));
+            Scene scene = new Scene(loader.load());
+            HeldBillsController controller = loader.getController();
+
+            Stage stage = new Stage();
+            stage.setTitle("Held Bills");
+            IconUtil.applyAppIcon(stage);
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(scene);
+            stage.showAndWait();
+
+            com.vastra.model.HeldBill resumed = controller.getResumedBill();
+            if (resumed != null) {
+                if (!cartItems.isEmpty()) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                            "Resuming will replace what's currently in your cart. Continue?");
+                    Optional<ButtonType> confirmResult = confirm.showAndWait();
+                    if (confirmResult.isEmpty() || confirmResult.get() != ButtonType.OK) {
+                        refreshHeldBillsIndicator();
+                        return;
+                    }
+                }
+
+                cartItems.setAll(resumed.getItems());
+                currentCustomer = resumed.getCustomerId() != null ? CustomerDAO.findById(resumed.getCustomerId()) : null;
+                if (customerNameLabel != null) {
+                    customerNameLabel.setText(currentCustomer != null ? currentCustomer.getName() : "Walk-in Customer");
+                }
+                if (customerPointsLabel != null) {
+                    customerPointsLabel.setText(currentCustomer != null
+                            ? String.format("%.2f points available", currentCustomer.getPoints()) : "0 points");
+                }
+                if (discountField != null) discountField.setText(String.format("%.2f", resumed.getDiscount()));
+                updateTotals();
+            }
+            refreshHeldBillsIndicator();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening held bills: " + e.getMessage());
+        }
+    }
+
+    /** Updates the "Hold Sale" button to show how many bills are currently parked. */
+    private void refreshHeldBillsIndicator() {
+        if (holdSaleButton == null) return;
+        try {
+            int count = com.vastra.dao.HeldBillDAO.countHeldBills();
+            holdSaleButton.setText(count > 0 ? "Hold Sale / Resume (" + count + ")" : "Hold Sale");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void onShowReports() {
+        if (!com.vastra.util.Session.requireAdmin()) return;
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/reports.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Reports");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening reports screen: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onShowSettings() {
+        if (!com.vastra.util.Session.requireAdmin()) return;
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/settings.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Settings");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening settings screen: " + e.getMessage());
+        }
+    }
     @FXML
     public void onShareLastBillWhatsApp() {
         if (lastCompletedSale == null) {

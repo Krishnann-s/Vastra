@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.CashRegisterController"
+            prefWidth="800" prefHeight="700">
+
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <Label text="Cash Register" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <Label text="Open with your starting float, close by counting the drawer at end of day."
+                   style="-fx-text-fill: rgba(255,255,255,0.85); -fx-font-size: 12px;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="15">
+                <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+
+                <!-- ============ NO SESSION TODAY ============ -->
+                <VBox fx:id="openRegisterPane" spacing="10" styleClass="card">
+                    <Label text="Open Today's Register" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Label text="Count the cash in your drawer before you start selling and enter it here."
+                           style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+                    <Label text="Opening Cash Amount (₹)"/>
+                    <TextField fx:id="openingAmountField" promptText="e.g. 2000"/>
+                    <Label text="Notes (optional)"/>
+                    <TextArea fx:id="openingNotesField" prefRowCount="2" wrapText="true"/>
+                    <Button text="🔓 Open Register" onAction="#onOpenRegister"
+                            style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"
+                            prefHeight="40"/>
+                </VBox>
+
+                <!-- ============ SESSION OPEN ============ -->
+                <VBox fx:id="activeRegisterPane" spacing="10" styleClass="card">
+                    <Label text="Today's Register - Open" style="-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #2E7D32;"/>
+                    <Label fx:id="sessionInfoLabel" wrapText="true"/>
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label fx:id="expectedCashLabel" style="-fx-font-weight: bold; -fx-font-size: 13px;"/>
+                        <Button text="🔄 Refresh" onAction="#onRefreshExpected"/>
+                    </HBox>
+                    <Separator/>
+                    <Label text="Close Register" style="-fx-font-weight: bold;"/>
+                    <Label text="Count the physical cash in the drawer now and enter it below."
+                           style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+                    <Label text="Counted Cash Amount (₹)"/>
+                    <TextField fx:id="closingAmountField" promptText="e.g. 8450"/>
+                    <Label text="Notes (optional - e.g. explain any shortfall)"/>
+                    <TextArea fx:id="closingNotesField" prefRowCount="2" wrapText="true"/>
+                    <Button text="🔒 Close Register" onAction="#onCloseRegister"
+                            style="-fx-background-color: #D32F2F; -fx-text-fill: white; -fx-font-weight: bold;"
+                            prefHeight="40"/>
+                </VBox>
+
+                <!-- ============ ALREADY CLOSED TODAY ============ -->
+                <VBox fx:id="closedTodayPane" spacing="10" styleClass="card">
+                    <Label text="Today's Register - Closed" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Label fx:id="closedSummaryLabel" wrapText="true"/>
+                </VBox>
+
+                <Separator/>
+
+                <Label text="History (last 30 sessions)" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <TableView fx:id="historyTable" prefHeight="280">
+                    <columns>
+                        <TableColumn fx:id="hDateColumn" text="Date" prefWidth="100"/>
+                        <TableColumn fx:id="hOpenedByColumn" text="Opened By" prefWidth="110"/>
+                        <TableColumn fx:id="hOpeningColumn" text="Opening" prefWidth="100"/>
+                        <TableColumn fx:id="hClosingColumn" text="Closing" prefWidth="100"/>
+                        <TableColumn fx:id="hExpectedColumn" text="Expected" prefWidth="100"/>
+                        <TableColumn fx:id="hVarianceColumn" text="Variance" prefWidth="110"/>
+                        <TableColumn fx:id="hStatusColumn" text="Status" prefWidth="90"/>
+                    </columns>
+                    <placeholder>
+                        <Label text="No sessions yet" style="-fx-text-fill: #999;"/>
+                    </placeholder>
+                </TableView>
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" style="-fx-padding: 10; -fx-background-color: #f5f5f5;">
+            <Button text="Close Window" onAction="#onClose"/>
+        </HBox>
+    </bottom>
+</BorderPane>

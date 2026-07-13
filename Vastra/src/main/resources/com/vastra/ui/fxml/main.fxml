@@ -24,6 +24,7 @@
                     <SeparatorMenuItem/>
                     <MenuItem text="Complete Sale (F3)" onAction="#onCompleteSale"/>
                     <MenuItem text="Hold Sale" onAction="#onHoldSale"/>
+                    <MenuItem text="Resume Held Bill" onAction="#onShowHeldBills"/>
                     <MenuItem text="Clear Cart (F4)" onAction="#onClearCart"/>
                     <MenuItem text="Share Last Bill (WhatsApp)" onAction="#onShareLastBillWhatsApp"/>
                     <MenuItem text="Customer Ledger" onAction="#onShowCustomerLedger"/>
@@ -35,6 +36,7 @@
                 </Menu>
                 <Menu text="Inventory">
                     <MenuItem text="Low Stock Alert" onAction="#onShowLowStock"/>
+                    <MenuItem text="Stock Matrix (Size/Color)" onAction="#onShowStockMatrix"/>
                     <MenuItem fx:id="bulkImportMenuItem" text="Bulk Import" onAction="#onBulkImport"/>
                     <MenuItem text="Returns" onAction="#onShowReturns"/>
                 </Menu>
@@ -117,6 +119,7 @@
                         <TableColumn fx:id="nameColumn" text="Product" prefWidth="250"/>
                         <TableColumn fx:id="qtyColumn" text="Qty" prefWidth="80"/>
                         <TableColumn fx:id="priceColumn" text="Price" prefWidth="100"/>
+                        <TableColumn fx:id="itemDiscountColumn" text="Disc (₹)" prefWidth="90"/>
                         <TableColumn fx:id="taxColumn" text="Tax" prefWidth="80"/>
                         <TableColumn fx:id="totalColumn" text="Total" prefWidth="100"/>
                         <TableColumn fx:id="actionColumn" text="Action" prefWidth="100"/>
@@ -140,9 +143,10 @@
                                 prefWidth="110"
                                 style="-fx-font-size: 12px;"/>
                         <Button text="Hold Sale"
+                                fx:id="holdSaleButton"
                                 onAction="#onHoldSale"
                                 styleClass="button-secondary"
-                                prefWidth="110"
+                                prefWidth="140"
                                 style="-fx-font-size: 12px;"/>
                     </HBox>
                     <HBox spacing="10">
@@ -203,15 +207,14 @@
                     </HBox>
                     <Separator/>
                     <HBox spacing="10">
-                        <Label text="Tax (GST):" styleClass="tax-label" HBox.hgrow="ALWAYS"/>
+                        <Label text="Tax (included):" styleClass="tax-label" HBox.hgrow="ALWAYS"/>
                         <Label fx:id="taxLabel"
                                text="₹0.00"
                                styleClass="tax-label"/>
                     </HBox>
                     <HBox spacing="10">
                         <Label text="Discount:" styleClass="discount-label" HBox.hgrow="ALWAYS"/>
-                        <Label text="- ₹" styleClass="discount-label"/>
-                        <Label text="0.00" styleClass="discount-label"/>
+                        <Label fx:id="discountTotalLabel" text="- ₹0.00" styleClass="discount-label"/>
                     </HBox>
                     <Separator style="-fx-background-color: #4CAF50;"/>
                     <HBox spacing="10">
@@ -236,7 +239,7 @@
     <bottom>
         <HBox style="-fx-background-color: #f5f5f5; -fx-padding: 10; -fx-border-color: #ddd; -fx-border-width: 1 0 0 0;">
             <Label text="Vastra Billing System v1.0 | " style="-fx-text-fill: #666;"/>
-            <Label text="F1: Add Product | F2: Add Customer | F3: Complete Sale | F4: Clear Cart"
+            <Label text="F1: Add Product | F2: Add Customer | F3: Complete Sale | F4: Clear Cart | F5: Hold Sale"
                    style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label text="🔍 Scan product barcodes - items appear automatically!"

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.control.*?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
 
 <BorderPane xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.vastra.ui.controllers.DashboardController"
@@ -23,10 +26,11 @@
         <VBox spacing="20" style="-fx-padding: 20;">
             <GridPane hgap="15" vgap="15">
                 <columnConstraints>
-                    <ColumnConstraints percentWidth="25"/>
-                    <ColumnConstraints percentWidth="25"/>
-                    <ColumnConstraints percentWidth="25"/>
-                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="20"/>
+                    <ColumnConstraints percentWidth="20"/>
+                    <ColumnConstraints percentWidth="20"/>
+                    <ColumnConstraints percentWidth="20"/>
+                    <ColumnConstraints percentWidth="20"/>
                 </columnConstraints>
 
                 <VBox styleClass="card" GridPane.columnIndex="0" spacing="8">
@@ -50,7 +54,32 @@
                     <Label text="CUSTOMERS OWE YOU" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
                     <Label fx:id="customerDueLabel" text="₹0.00" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: #1976D2;"/>
                 </VBox>
+
+                <VBox styleClass="card" GridPane.columnIndex="4" spacing="8">
+                    <Label text="CASH REGISTER" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <Label fx:id="cashRegisterStatusLabel" text="Loading..." style="-fx-font-size: 14px; -fx-wrap-text: true;" wrapText="true"/>
+                    <Button fx:id="cashRegisterButton" text="Open / Close" onAction="#onShowCashRegister" style="-fx-font-size: 11px;"/>
+                </VBox>
             </GridPane>
+
+            <HBox spacing="20" alignment="TOP_LEFT">
+                <VBox styleClass="card" spacing="8" HBox.hgrow="ALWAYS" prefWidth="500">
+                    <Label text="LAST 7 DAYS" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <BarChart fx:id="weeklyRevenueChart" prefHeight="220" animated="false">
+                        <xAxis>
+                            <CategoryAxis fx:id="weeklyRevenueXAxis" label=""/>
+                        </xAxis>
+                        <yAxis>
+                            <NumberAxis label="Revenue (₹)"/>
+                        </yAxis>
+                    </BarChart>
+                </VBox>
+
+                <VBox styleClass="card" spacing="8" HBox.hgrow="ALWAYS" prefWidth="300">
+                    <Label text="TOP 5 PRODUCTS (LAST 30 DAYS)" style="-fx-text-fill: #666; -fx-font-size: 12px; -fx-font-weight: bold;"/>
+                    <VBox fx:id="topProductsBox" spacing="2"/>
+                </VBox>
+            </HBox>
 
             <HBox spacing="15" alignment="CENTER_LEFT">
                 <Button text="🛒 Start New Sale" onAction="#onStartSale" styleClass="button-primary" prefHeight="55" prefWidth="220"
@@ -59,6 +88,7 @@
                 <Button fx:id="backupButton" text="Backup" onAction="#onShowBackup" prefHeight="55"/>
                 <Button fx:id="manageUsersButton" text="👤 Manage Users" onAction="#onManageUsers" prefHeight="55"/>
                 <Button text="⚠ Low Stock" onAction="#onShowLowStock" prefHeight="55"/>
+                <Button text="📊 Export to Excel" onAction="#onQuickExport" prefHeight="55"/>
                 <Region HBox.hgrow="ALWAYS"/>
                 <Button text="⟳ Refresh" onAction="#onRefresh"/>
             </HBox>

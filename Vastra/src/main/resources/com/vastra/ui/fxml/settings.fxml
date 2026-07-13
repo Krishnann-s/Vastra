@@ -1,14 +1,110 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<AnchorPane xmlns="http://javafx.com/javafx"
-            xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.vastra.ui.fxml.Settings"
-            prefHeight="400.0" prefWidth="600.0">
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.SettingsController"
+            prefWidth="650" prefHeight="700">
 
-</AnchorPane>
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button text="← Back" onAction="#onBack"
+                        style="-fx-background-color: rgba(255,255,255,0.2); -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4;"/>
+                <Label text="Settings" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="10">
+                <padding><Insets top="15" right="20" bottom="15" left="20"/></padding>
+
+                <Label text="Store Details" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <Label text="Shown on printed receipts and WhatsApp bills." style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                <Label text="Store Name"/>
+                <TextField fx:id="storeNameField"/>
+                <Label text="Address"/>
+                <TextField fx:id="storeAddressField"/>
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Phone"/>
+                        <TextField fx:id="storePhoneField"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Email (optional)"/>
+                        <TextField fx:id="storeEmailField"/>
+                    </VBox>
+                </HBox>
+                <Label text="GSTIN (optional - leave blank if you don't need it on bills)"/>
+                <TextField fx:id="storeGstinField"/>
+
+                <Separator/>
+
+                <Label text="Billing" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Currency Symbol"/>
+                        <TextField fx:id="currencySymbolField" prefWidth="80"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Counter Name"/>
+                        <TextField fx:id="counterNameField"/>
+                    </VBox>
+                </HBox>
+                <Label text="Receipt Footer Message"/>
+                <TextArea fx:id="receiptFooterField" prefRowCount="2" wrapText="true"/>
+                <Label text="Exchange / Return Policy (printed on receipts)"/>
+                <TextArea fx:id="exchangePolicyField" prefRowCount="4" wrapText="true"/>
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Receipt Paper Width"/>
+                        <ComboBox fx:id="receiptPaperWidthCombo" maxWidth="Infinity"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Default GST % for new products"/>
+                        <TextField fx:id="defaultGstPercentField"/>
+                    </VBox>
+                </HBox>
+                <Label text="Receipt Printer"/>
+                <ComboBox fx:id="receiptPrinterCombo" maxWidth="Infinity"/>
+                <Label text="Choose your thermal/receipt printer here so every sale prints straight to it - otherwise Windows' default printer is used, which may not be the one you want."
+                       style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+
+                <Separator/>
+
+                <Label text="Backup" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <CheckBox fx:id="autoBackupEnabledCheckBox" text="Automatically back up once a day (on startup and when closing the app)"/>
+                <Label text="You can still back up manually any time from the Backup screen." style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+
+                <Separator/>
+
+                <Label text="Inventory" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <CheckBox fx:id="lowStockAlertCheckBox" text="Show low stock alerts on the billing screen"/>
+
+                <Separator/>
+
+                <Label text="Loyalty Points" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                <CheckBox fx:id="loyaltyEnabledCheckBox" text="Enable customer loyalty points"/>
+                <HBox spacing="10">
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Points earned per ₹100 spent"/>
+                        <TextField fx:id="pointsPer100Field"/>
+                    </VBox>
+                    <VBox spacing="4" HBox.hgrow="ALWAYS">
+                        <Label text="Minimum points needed to redeem"/>
+                        <TextField fx:id="minPointsRedemptionField"/>
+                    </VBox>
+                </HBox>
+
+                <Separator/>
+
+                <Button text="💾 Save Settings" onAction="#onSave"
+                        style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;"
+                        maxWidth="Infinity" prefHeight="40"/>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>

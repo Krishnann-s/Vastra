@@ -136,7 +136,7 @@ public class LabelPrintController {
         if (result.isEmpty() || result.get() != ButtonType.OK) return;
 
         String careNote = careNoteField != null ? careNoteField.getText() : null;
-        boolean success = LabelPrintUtil.printLabels(queue, careNote);
+        boolean success = LabelPrintUtil.printLabels(queue, careNote, previewPane.getScene().getWindow());
         if (success) {
             showInfo("Labels sent to printer successfully!");
         } else {

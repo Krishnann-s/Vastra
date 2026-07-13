@@ -150,6 +150,98 @@ public class ExcelReportUtil {
         workbook.close();
     }
 
+    public static void generateStockValuationReport(String filepath) throws Exception {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Stock Valuation");
+
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        String[] headers = {"Product", "Category", "Stock", "Cost Price", "Sell Price", "Cost Value", "Sell Value", "Potential Profit"};
+        writeHeaderRow(sheet, headerStyle, headers);
+
+        List<Product> products = ProductDAO.getAllProducts();
+        int rowNum = 1;
+        double totalCostValue = 0, totalSellValue = 0;
+
+        for (Product p : products) {
+            Row row = sheet.createRow(rowNum++);
+            double costValue = (p.getPurchasePriceCents() * (long) p.getStock()) / 100.0;
+            double sellValue = (p.getSellPriceCents() * (long) p.getStock()) / 100.0;
+            row.createCell(0).setCellValue(p.getFullDisplayName());
+            row.createCell(1).setCellValue(p.getCategory());
+            row.createCell(2).setCellValue(p.getStock());
+            row.createCell(3).setCellValue(p.getPurchasePrice());
+            row.createCell(4).setCellValue(p.getSellPrice());
+            row.createCell(5).setCellValue(costValue);
+            row.createCell(6).setCellValue(sellValue);
+            row.createCell(7).setCellValue(sellValue - costValue);
+            totalCostValue += costValue;
+            totalSellValue += sellValue;
+        }
+
+        Row summaryRow = sheet.createRow(rowNum + 1);
+        Cell label = summaryRow.createCell(4);
+        label.setCellValue("TOTALS:");
+        label.setCellStyle(headerStyle);
+        summaryRow.createCell(5).setCellValue(totalCostValue);
+        summaryRow.createCell(6).setCellValue(totalSellValue);
+        summaryRow.createCell(7).setCellValue(totalSellValue - totalCostValue);
+
+        autoSize(sheet, headers.length);
+
+        try (FileOutputStream fos = new FileOutputStream(filepath)) {
+            workbook.write(fos);
+        }
+        workbook.close();
+    }
+
+    public static void generateExpenseReport(String startDate, String endDate, String filepath) throws Exception {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Expenses");
+
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        String[] headers = {"Date", "Category", "Description", "Amount", "Payment Mode", "Notes"};
+        writeHeaderRow(sheet, headerStyle, headers);
+
+        List<com.vastra.model.Expense> expenses = com.vastra.dao.ExpenseDAO.getExpensesInRange(startDate, endDate);
+        int rowNum = 1;
+        double total = 0;
+        for (com.vastra.model.Expense e : expenses) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(e.getExpenseDate());
+            row.createCell(1).setCellValue(e.getCategory());
+            row.createCell(2).setCellValue(e.getDescription());
+            row.createCell(3).setCellValue(e.getAmount());
+            row.createCell(4).setCellValue(e.getPaymentMode());
+            row.createCell(5).setCellValue(e.getNotes());
+            total += e.getAmount();
+        }
+
+        Row summaryRow = sheet.createRow(rowNum + 1);
+        Cell label = summaryRow.createCell(2);
+        label.setCellValue("TOTAL EXPENSES:");
+        label.setCellStyle(headerStyle);
+        summaryRow.createCell(3).setCellValue(total);
+
+        autoSize(sheet, headers.length);
+
+        try (FileOutputStream fos = new FileOutputStream(filepath)) {
+            workbook.write(fos);
+        }
+        workbook.close();
+    }
+
     public static void generateMonthlyReport(String startDate, String endDate, String filepath) throws Exception {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Monthly Report");

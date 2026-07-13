@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.StockMatrixController"
+            prefWidth="900" prefHeight="650">
+
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;" spacing="10">
+            <Label text="Stock Matrix - Size &amp; Color" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Style:" style="-fx-text-fill: white;"/>
+                <ComboBox fx:id="styleCombo" onAction="#onStyleSelected" prefWidth="300"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="10">
+            <padding><Insets top="15" right="15" bottom="15" left="15"/></padding>
+            <Label fx:id="emptyLabel" visible="false" managed="false"
+                   text="No products have Size or Color set yet. Add or edit a product and fill in Size/Color to see it here."
+                   style="-fx-text-fill: #999; -fx-font-size: 13px;" wrapText="true"/>
+            <HBox spacing="15">
+                <Label text="🟩 In stock" style="-fx-font-size: 11px;"/>
+                <Label text="🟧 Low stock" style="-fx-font-size: 11px;"/>
+                <Label text="🟥 Out of stock" style="-fx-font-size: 11px;"/>
+                <Label text="⬜ No product for this combination" style="-fx-font-size: 11px;"/>
+            </HBox>
+            <VBox fx:id="gridContainer" VBox.vgrow="ALWAYS"/>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" style="-fx-padding: 10; -fx-background-color: #f5f5f5;">
+            <Button text="Close" onAction="#onClose"/>
+        </HBox>
+    </bottom>
+</BorderPane>

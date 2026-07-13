@@ -15,16 +15,18 @@ public class ProductDAO {
      * Insert a new product with auto-generated barcode if not provided
      */
     public static String insertProduct(String prod_name, String variant,
-                                       int mrp, int sellPrice, int gst, int stock,
-                                       String category, String brand, String sku) throws Exception {
+                                       int mrp, int sellPrice, int purchasePrice, int gst, int stock,
+                                       String category, String brand, String sku,
+                                       String hsnCode, int reorderThreshold, String description,
+                                       String size, String color) throws Exception {
         String prod_id = UUID.randomUUID().toString();
         String barcode = sku != null && !sku.isEmpty() ? sku : generateBarcode();
 
         String sql = """
             INSERT INTO products(id, name, variant, category, brand, barcode, sku,
-                               mrp_cents, sell_price_cents, gst_percent, stock, 
-                               reorder_threshold, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+                               mrp_cents, sell_price_cents, purchase_price_cents, gst_percent, stock,
+                               reorder_threshold, hsn_code, description, size, color, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
         """;
 
         try (Connection c = DBUtil.getConnection();
@@ -38,14 +40,48 @@ public class ProductDAO {
             ps.setString(7, sku != null ? sku : barcode);
             ps.setInt(8, mrp);
             ps.setInt(9, sellPrice);
-            ps.setInt(10, gst);
-            ps.setInt(11, stock);
-            ps.setInt(12, 5); // default reorder threshold
+            ps.setInt(10, purchasePrice);
+            ps.setInt(11, gst);
+            ps.setInt(12, stock);
+            ps.setInt(13, reorderThreshold);
+            ps.setString(14, hsnCode != null ? hsnCode : "");
+            ps.setString(15, description != null ? description : "");
+            ps.setString(16, (size == null || size.isBlank()) ? null : size.trim());
+            ps.setString(17, (color == null || color.isBlank()) ? null : color.trim());
             ps.executeUpdate();
         }
 
         ActivityLogUtil.log(null, "CREATE", "PRODUCT", prod_id, prod_name + " added");
         return prod_id;
+    }
+
+    /** Distinct product names ("styles") that have at least one size or color set - for the Stock Matrix picker. */
+    public static List<String> getStyleNamesWithVariants() throws SQLException {
+        String sql = """
+            SELECT DISTINCT name FROM products
+            WHERE is_active = 1 AND (size IS NOT NULL OR color IS NOT NULL)
+            ORDER BY name
+        """;
+        List<String> names = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery(sql)) {
+            while (rs.next()) names.add(rs.getString("name"));
+        }
+        return names;
+    }
+
+    /** All active variants (by size/color) of one style - the raw data behind the Stock Matrix grid. */
+    public static List<Product> getVariantsForStyle(String styleName) throws SQLException {
+        String sql = "SELECT * FROM products WHERE name = ? AND is_active = 1 ORDER BY size, color";
+        List<Product> results = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, styleName);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) results.add(extractProduct(rs));
+        }
+        return results;
     }
 
     /**
@@ -129,13 +165,17 @@ public class ProductDAO {
     }
 
     /**
-     * Decrement stock (used during sale)
+     * Decrement stock as part of an existing transaction (e.g. from inside
+     * SalesDAO.completeSale()). Must use the SAME connection as the caller -
+     * a separate connection here would try to grab SQLite's single write lock
+     * while the caller's own transaction is still holding it, which either
+     * deadlocks or (worse) can commit a stock change independently of whether
+     * the sale itself actually goes through.
      */
-    public static void decrementStock(String productId, int quantity) throws SQLException {
+    public static void decrementStock(Connection conn, String productId, int quantity) throws SQLException {
         String sql = "UPDATE products SET stock = stock - ?, updated_at = datetime('now') " +
                 "WHERE id = ? AND stock >= ?";
-        try (Connection c = DBUtil.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, quantity);
             ps.setString(2, productId);
             ps.setInt(3, quantity);
@@ -175,6 +215,51 @@ public class ProductDAO {
             }
         }
         return products;
+    }
+
+    /**
+     * Low stock products, each paired with a suggested reorder quantity based on
+     * how fast it's actually been selling over the last 30 days:
+     *   - If it's been selling: enough to cover the next 14 days at that pace
+     *     (and always at least enough to clear the low-stock alert).
+     *   - If it hasn't sold at all recently (new item, or slow mover): a safe
+     *     default of twice the reorder threshold, since there's no sales data
+     *     to estimate from.
+     * This is a simple estimate to help you decide how much to order, not an
+     * exact science - adjust based on what you know about the item.
+     */
+    public static List<com.vastra.model.LowStockSuggestion> getLowStockWithSuggestions() throws SQLException {
+        String sql = """
+            SELECT p.*, COALESCE(SUM(si.qty), 0) AS sold_last_30d
+            FROM products p
+            LEFT JOIN sale_items si ON si.product_id = p.id
+            LEFT JOIN sales s ON s.id = si.sale_id AND s.ts >= datetime('now', '-30 days')
+            WHERE p.stock <= p.reorder_threshold AND p.is_active = 1
+            GROUP BY p.id
+            ORDER BY p.stock ASC
+        """;
+        List<com.vastra.model.LowStockSuggestion> results = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery(sql)) {
+            while (rs.next()) {
+                Product p = extractProduct(rs);
+                int soldLast30Days = rs.getInt("sold_last_30d");
+
+                int suggested;
+                if (soldLast30Days > 0) {
+                    double dailyAvg = soldLast30Days / 30.0;
+                    int twoWeeksWorth = (int) Math.ceil(dailyAvg * 14);
+                    int enoughToClearAlert = (p.getReorderThreshold() - p.getStock()) + 1;
+                    suggested = Math.max(twoWeeksWorth, Math.max(enoughToClearAlert, 1));
+                } else {
+                    suggested = Math.max(p.getReorderThreshold() * 2 - p.getStock(), p.getReorderThreshold());
+                }
+
+                results.add(new com.vastra.model.LowStockSuggestion(p, soldLast30Days, suggested));
+            }
+        }
+        return results;
     }
 
     /**
@@ -328,6 +413,9 @@ public class ProductDAO {
 
         String updatedAt = rs.getString("updated_at");
         p.setUpdatedAt(updatedAt != null ? updatedAt : "");
+
+        p.setSize(rs.getString("size"));
+        p.setColor(rs.getString("color"));
 
         return p;
     }

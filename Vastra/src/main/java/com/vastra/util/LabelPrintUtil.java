@@ -103,6 +103,9 @@ public class LabelPrintUtil {
         root.setPrefSize(wPx, hPx);
         root.setMaxSize(wPx, hPx);
         root.setStyle("-fx-border-color: black; -fx-border-width: 0.5;");
+        // Safety net: nothing drawn inside can ever visually spill past the label's own
+        // edge, even if a very long product name or an edge-case size pushes past budget.
+        root.setClip(new javafx.scene.shape.Rectangle(wPx, hPx));
 
         Text brand = new Text(STORE_NAME);
         brand.setFont(Font.font("Arial", FontWeight.BOLD, 6.5));
@@ -111,7 +114,6 @@ public class LabelPrintUtil {
                 ? product.getBrand() + " " : "") + product.getName();
         Text descText = new Text(desc.toUpperCase());
         descText.setFont(Font.font("Arial", FontWeight.BOLD, 7));
-        descText.setWrappingWidth(wPx * 0.6);
 
         Text sizeText = new Text("SIZE : " + (product.getVariant() != null ? product.getVariant() : "-"));
         sizeText.setFont(Font.font("Arial", 7));
@@ -124,17 +126,35 @@ public class LabelPrintUtil {
         Text priceText = new Text("PRICE:" + String.format("%.2f", product.getSellPrice()));
         priceText.setFont(Font.font("Arial", FontWeight.BOLD, 7));
 
+        // Give the text column and the QR code an explicit width budget that actually
+        // sums to fit inside the label - previously the QR was sized off the label's
+        // HEIGHT only, with no check against how much width was left after the text,
+        // so on a narrow label the two together overflowed past the printed edge.
+        double horizontalPadding = 4;  // textBlock's own left+right Insets below
+        double interGap = 3;           // spacing between text column and QR in the HBox
+        double borderAllowance = 2;    // ~0.5px border each side, rounded up
+        double availableWidth = wPx - horizontalPadding - interGap - borderAllowance;
+
+        double qrMaxByHeight = hPx * 0.85;
+        double qrMaxByWidth = availableWidth * 0.40; // QR gets at most 40% of the usable width
+        int qrSizePx = (int) Math.max(20, Math.min(qrMaxByHeight, qrMaxByWidth));
+
+        double textBlockWidth = Math.max(20, availableWidth - qrSizePx);
+        descText.setWrappingWidth(textBlockWidth);
+
         VBox textBlock = new VBox(1, brand, descText, sizeText, codeText, priceText);
         textBlock.setPadding(new Insets(2, 2, 2, 2));
         textBlock.setAlignment(Pos.TOP_LEFT);
+        textBlock.setMinWidth(textBlockWidth);
+        textBlock.setPrefWidth(textBlockWidth);
+        textBlock.setMaxWidth(textBlockWidth);
 
-        int qrSizePx = (int) (hPx * 0.85);
         Image qrImage = generateQrImage(itemCode != null ? itemCode : product.getId(), qrSizePx);
         ImageView qrView = new ImageView(qrImage);
         qrView.setFitWidth(qrSizePx);
         qrView.setFitHeight(qrSizePx);
 
-        HBox body = new HBox(2, textBlock, qrView);
+        HBox body = new HBox(interGap, textBlock, qrView);
         body.setAlignment(Pos.CENTER_LEFT);
 
         if (careNoteText != null && !careNoteText.isBlank()) {
@@ -261,12 +281,23 @@ public class LabelPrintUtil {
      * Returns true if every row printed successfully.
      *
      * @param careNoteText optional wash-care text rotated on the left edge of each label, or null.
+     * @param ownerWindow  the screen this was called from, so the printer-selection dialog
+     *                     appears attached to it. Pass null if unavailable.
      */
-    public static boolean printLabels(List<LabelPrintItem> items, String careNoteText) {
+    public static boolean printLabels(List<LabelPrintItem> items, String careNoteText, javafx.stage.Window ownerWindow) {
         PrinterJob job = PrinterJob.createPrinterJob();
         if (job == null) {
             System.err.println("No printer available");
             return false;
+        }
+
+        // Without this, JavaFX silently prints to whichever printer Windows currently has
+        // set as the default (often "Microsoft Print to PDF" on a machine where a label/
+        // receipt printer was just plugged in but never set as default) - showing this
+        // dialog lets the user pick the actual TSC/thermal printer every time instead.
+        boolean proceed = job.showPrintDialog(ownerWindow);
+        if (!proceed) {
+            return false; // user cancelled the dialog
         }
 
         Printer printer = job.getPrinter();

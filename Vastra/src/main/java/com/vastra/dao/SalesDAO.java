@@ -3,7 +3,9 @@ package com.vastra.dao;
 import com.vastra.model.CartItem;
 import com.vastra.model.Customer;
 import com.vastra.model.SaleReceiptData;
+import com.vastra.model.SplitPayment;
 import com.vastra.util.DBUtil;
+import com.vastra.util.SaleCalculator;
 import com.vastra.util.SequenceUtil;
 import com.vastra.util.TaxBreakupUtil;
 import com.vastra.model.Sale;
@@ -33,25 +35,49 @@ public class SalesDAO {
      *                               this sale's discount, purely for the
      *                               receipt's closing-balance math - pass 0
      *                               if none were redeemed.
+     * @param payments               one or more payment lines covering the total (e.g. a single
+     *                               CASH line, or CASH+UPI split across two lines). Pass a single
+     *                               CREDIT line for a pay-later sale.
      * @param cashierName            who's ringing up this sale, printed on the receipt.
      */
     public static SaleReceiptData completeSale(List<CartItem> items, String customerId,
-                                                double customerPointsOpening, double pointsRedeemedThisSale,
-                                                int discountCents, String paymentMode, String cashierName) throws SQLException {
+                                               double customerPointsOpening, double pointsRedeemedThisSale,
+                                               int discountCents, List<SplitPayment> payments, String cashierName) throws SQLException {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("Cannot complete a sale with an empty cart");
+        }
+        if (payments == null || payments.isEmpty()) {
+            throw new IllegalArgumentException("At least one payment line is required");
+        }
+
         Connection conn = null;
         try {
             conn = DBUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // Calculate totals
-            int subtotalCents = 0;
-            int taxCents = 0;
-            for (CartItem item : items) {
-                int lineTotal = item.getProduct().getSellPriceCents() * item.getQuantity();
-                subtotalCents += lineTotal;
-                taxCents += (int) Math.round(item.getTaxAmount() * 100);
+            // Calculate totals. subtotalCents is the GROSS total (before any discount);
+            // item-level discounts (set per row in the cart) are tracked separately from
+            // the bill-level "discountCents" passed in, then combined for the final total
+            // and for the single discount_cents column stored on the sale header.
+            // (See SaleCalculator for the actual math + its unit tests.)
+            SaleCalculator.Totals totals = SaleCalculator.computeTotals(items, discountCents);
+            int subtotalCents = totals.subtotalCents;
+            int taxCents = totals.taxCents;
+            int itemDiscountCents = totals.itemDiscountCents;
+            int totalDiscountCents = totals.totalDiscountCents;
+            int totalCents = totals.totalCents;
+
+            if (!SaleCalculator.isSplitValid(payments, totalCents)) {
+                throw new IllegalArgumentException("Payment amounts do not add up to the sale total");
             }
-            int totalCents = subtotalCents - discountCents;
+
+            // A single-mode sale keeps its plain mode name (e.g. "CASH" or "CREDIT") in the
+            // sales.payment_mode column, exactly as before, so existing CREDIT-based due
+            // calculations elsewhere keep working unchanged. A genuinely split sale stores
+            // "SPLIT" there, with the actual breakdown in the new sale_payments table.
+            boolean isCreditSale = payments.size() == 1 && "CREDIT".equalsIgnoreCase(payments.get(0).getMode());
+            String overallMode = SaleCalculator.overallPaymentMode(payments);
+            String paymentDisplay = SaleCalculator.paymentDisplay(payments);
 
             // Sequential, human-friendly bill number (e.g. "1572") instead of a timestamp
             long billNumberLong = SequenceUtil.nextValueInTransaction(conn, "next_bill_number", 1001);
@@ -76,17 +102,30 @@ public class SalesDAO {
                 ps.setString(5, timestamp);
                 ps.setInt(6, subtotalCents);
                 ps.setInt(7, taxCents);
-                ps.setInt(8, discountCents);
+                ps.setInt(8, totalDiscountCents);
                 ps.setInt(9, totalCents);
-                ps.setString(10, paymentMode);
+                ps.setString(10, overallMode);
                 ps.executeUpdate();
+            }
+
+            // Insert one row per payment line (usually just one - CASH, CARD, UPI, or CREDIT;
+            // more than one when the sale was split across methods)
+            String paymentSql = "INSERT INTO sale_payments(id, sale_id, mode, amount_cents) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(paymentSql)) {
+                for (SplitPayment payment : payments) {
+                    ps.setString(1, UUID.randomUUID().toString());
+                    ps.setString(2, saleId);
+                    ps.setString(3, payment.getMode());
+                    ps.setInt(4, payment.getAmountCents());
+                    ps.executeUpdate();
+                }
             }
 
             // Insert sale items and update stock
             String itemSql = """
                 INSERT INTO sale_items(id, sale_id, product_id, product_name, product_variant, 
-                                       qty, unit_price_cents, tax_percent, line_total_cents)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                       qty, unit_price_cents, discount_cents, tax_percent, line_total_cents)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
             try (PreparedStatement ps = conn.prepareStatement(itemSql)) {
@@ -98,12 +137,13 @@ public class SalesDAO {
                     ps.setString(5, item.getProduct().getVariant() != null ? item.getProduct().getVariant() : "");
                     ps.setInt(6, item.getQuantity());
                     ps.setInt(7, item.getProduct().getSellPriceCents());
-                    ps.setInt(8, item.getProduct().getGstPercent());
-                    ps.setInt(9, (int) Math.round(item.getLineTotal() * 100));
+                    ps.setInt(8, item.getDiscountCents());
+                    ps.setInt(9, item.getProduct().getGstPercent());
+                    ps.setInt(10, (int) Math.round(item.getLineTotal() * 100));
                     ps.executeUpdate();
 
                     // Update stock
-                    ProductDAO.decrementStock(item.getProduct().getId(), item.getQuantity());
+                    ProductDAO.decrementStock(conn, item.getProduct().getId(), item.getQuantity());
                 }
             }
 
@@ -112,7 +152,7 @@ public class SalesDAO {
             if (customerId != null && !customerId.isEmpty()) {
                 pointsEarned = totalCents / 10000.0;
                 if (pointsEarned > 0) {
-                    CustomerDAO.addPoints(customerId, pointsEarned);
+                    CustomerDAO.addPoints(conn, customerId, pointsEarned);
                 }
             }
 
@@ -134,11 +174,11 @@ public class SalesDAO {
 
             receipt.setSubtotal(subtotalCents / 100.0);
             receipt.setTax(taxCents / 100.0);
-            receipt.setDiscount(discountCents / 100.0);
+            receipt.setDiscount(totalDiscountCents / 100.0);
             receipt.setTotal(totalCents / 100.0);
 
-            receipt.setPaymentMode(paymentMode);
-            receipt.setCredit(paymentMode != null && paymentMode.equalsIgnoreCase("CREDIT"));
+            receipt.setPaymentMode(paymentDisplay);
+            receipt.setCredit(isCreditSale);
 
             if (customerId != null && !customerId.isEmpty()) {
                 Customer customer = CustomerDAO.findById(customerId);

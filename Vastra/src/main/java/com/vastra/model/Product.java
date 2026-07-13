@@ -21,6 +21,8 @@ public class Product {
     private boolean isActive;
     private String createdAt;
     private String updatedAt;
+    private String size;
+    private String color;
 
     // Complete Getters and Setters
     public String getId() { return id; }
@@ -82,6 +84,12 @@ public class Product {
 
     public String getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+
+    public String getSize() { return size; }
+    public void setSize(String size) { this.size = size; }
+
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
 
     // Convenience methods
     public double getMrp() {

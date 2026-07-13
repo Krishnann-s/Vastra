@@ -53,6 +53,27 @@
                     </GridPane>
                 </VBox>
 
+                <!-- Size & Color Section (for Stock Matrix) -->
+                <VBox spacing="10" style="-fx-border-color: #ddd; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #EDE7F6;">
+                    <Label text="SIZE &amp; COLOR" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                    <Separator/>
+                    <Label text="Optional - fill these in (using the same product name for each size/color) to see this style in the Stock Matrix (Products menu)."
+                           style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+                    <GridPane hgap="15" vgap="12">
+                        <Label text="Size:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <ComboBox fx:id="sizeCombo"
+                                  promptText="e.g. M, or type your own"
+                                  GridPane.rowIndex="0" GridPane.columnIndex="1"
+                                  prefWidth="150"/>
+
+                        <Label text="Color:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                        <TextField fx:id="colorField"
+                                   promptText="e.g. Red"
+                                   GridPane.rowIndex="0" GridPane.columnIndex="3"
+                                   prefWidth="150"/>
+                    </GridPane>
+                </VBox>
+
                 <!-- SKU Section -->
                 <VBox spacing="10" style="-fx-border-color: #ddd; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #FFFDE7;">
                     <Label text="PRODUCT CODE" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>

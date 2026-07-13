@@ -9,11 +9,41 @@ import java.sql.PreparedStatement;
 public class DBUtil {
 
     // Public so BackupUtil (and anything else that needs the raw file) can reference it.
-    public static final String DB_FILE_PATH = "db/vastra.db";
+    // Overridable via -Dvastra.db.path=... so tests can point at an isolated database
+    // instead of the real shop data - see pom.xml's surefire configuration, which sets
+    // this for every test run. In normal (non-test) use this system property is never
+    // set, so production behavior is exactly as before.
+    public static final String DB_FILE_PATH = System.getProperty("vastra.db.path", "db/vastra.db");
     private static final String DB_URL = "jdbc:sqlite:" + DB_FILE_PATH;
 
+    static {
+        // Explicitly load the driver instead of relying solely on JDBC 4's automatic
+        // ServiceLoader registration - some runtime environments (certain test runners,
+        // and potentially a jpackage'd executable) use a classloader setup where the
+        // automatic registration doesn't reliably see the driver otherwise.
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            throw new ExceptionInInitializerError("SQLite JDBC driver not found on the classpath: " + e.getMessage());
+        }
+    }
+
     public static Connection getConnection() throws java.sql.SQLException {
-        return DriverManager.getConnection(DB_URL);
+        java.io.File dbFile = new java.io.File(DB_FILE_PATH);
+        java.io.File parent = dbFile.getParentFile();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
+        Connection conn = DriverManager.getConnection(DB_URL);
+        // Without this, two connections that briefly overlap (e.g. a sale being
+        // completed at the same moment the auto-backup's VACUUM INTO runs) get an
+        // immediate "database is locked" error instead of one of them just waiting
+        // a moment for the other to finish - a genuine issue this project's own
+        // test suite caught. 5s is generous for a single-shop SQLite file.
+        try (Statement s = conn.createStatement()) {
+            s.execute("PRAGMA busy_timeout = 5000");
+        }
+        return conn;
     }
 
     public static void init() throws Exception {
@@ -277,6 +307,71 @@ Don''t bargain', datetime('now'));
             s.execute("CREATE INDEX IF NOT EXISTS idx_return_items_sale_item ON return_items(sale_item_id);");
             s.execute("CREATE INDEX IF NOT EXISTS idx_customer_payments_customer ON customer_payments(customer_id);");
 
+            // Shop running expenses (rent, salaries, electricity, etc.) - feeds the Expense Log report
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS expenses(
+                  id TEXT PRIMARY KEY,
+                  category TEXT,
+                  description TEXT,
+                  amount_cents INTEGER NOT NULL,
+                  expense_date TEXT,
+                  payment_mode TEXT,
+                  notes TEXT,
+                  created_at TEXT
+                );
+            """);
+            s.execute("CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);");
+
+            // Held bills - cart snapshot saved mid-sale so the counter can serve another
+            // customer, then resume later (see the Hold Sale button on the billing screen)
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS held_bills(
+                  id TEXT PRIMARY KEY,
+                  label TEXT,
+                  customer_id TEXT,
+                  customer_name TEXT,
+                  cart_json TEXT NOT NULL,
+                  discount_cents INTEGER DEFAULT 0,
+                  held_by TEXT,
+                  created_at TEXT
+                );
+            """);
+
+            // One row per payment method used on a sale - lets a single bill be split
+            // across Cash/Card/UPI. For a normal single-mode sale this just has one row.
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS sale_payments(
+                  id TEXT PRIMARY KEY,
+                  sale_id TEXT NOT NULL,
+                  mode TEXT NOT NULL,
+                  amount_cents INTEGER NOT NULL,
+                  FOREIGN KEY(sale_id) REFERENCES sales(id)
+                );
+            """);
+            s.execute("CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments(sale_id);");
+
+            // One row per business day the register is opened/closed - tracks the
+            // opening float, what cash *should* be there at close based on the day's
+            // transactions, what was actually counted, and the variance between them.
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS cash_register_sessions(
+                  id TEXT PRIMARY KEY,
+                  business_date TEXT NOT NULL,
+                  opening_cents INTEGER NOT NULL,
+                  opening_notes TEXT,
+                  opened_by TEXT,
+                  opened_at TEXT,
+                  closing_cents INTEGER,
+                  closing_notes TEXT,
+                  closed_by TEXT,
+                  closed_at TEXT,
+                  expected_cents INTEGER,
+                  variance_cents INTEGER,
+                  status TEXT DEFAULT 'OPEN'
+                );
+            """);
+            s.execute("CREATE INDEX IF NOT EXISTS idx_cash_register_date ON cash_register_sessions(business_date);");
+
             // Users table (login accounts - admins with passwords, cashiers with PINs)
             s.execute("""
                 CREATE TABLE IF NOT EXISTS users(
@@ -293,7 +388,32 @@ Don''t bargain', datetime('now'));
                 );
             """);
 
+            // Safe migration: products.size / products.color may not exist yet on an
+            // already-deployed database (the table predates these columns), so add
+            // them only if missing rather than assuming a fresh CREATE TABLE ran.
+            ensureColumnExists(c, "products", "size", "TEXT");
+            ensureColumnExists(c, "products", "color", "TEXT");
+
             seedDefaultAdminIfNeeded(c);
+        }
+    }
+
+    /** Adds a column to an existing table only if it isn't already there - SQLite has no "ADD COLUMN IF NOT EXISTS". */
+    private static void ensureColumnExists(Connection c, String table, String column, String definition) throws java.sql.SQLException {
+        boolean exists = false;
+        try (Statement s = c.createStatement();
+             ResultSet rs = s.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+        if (!exists) {
+            try (Statement s = c.createStatement()) {
+                s.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+            }
         }
     }
 

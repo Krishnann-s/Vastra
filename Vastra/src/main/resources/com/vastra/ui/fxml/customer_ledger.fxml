@@ -42,17 +42,44 @@
                 <Button text="💵 Record Payment" onAction="#onRecordPayment" style="-fx-background-color: #4CAF50; -fx-text-fill: white;"/>
             </HBox>
 
-            <Label text="Ledger (Statement)" style="-fx-font-weight: bold;"/>
-            <TableView fx:id="ledgerTable" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="ledgerDateColumn" text="Date" prefWidth="140"/>
-                    <TableColumn fx:id="ledgerTypeColumn" text="Type" prefWidth="90"/>
-                    <TableColumn fx:id="ledgerRefColumn" text="Ref / Mode" prefWidth="120"/>
-                    <TableColumn fx:id="ledgerDebitColumn" text="Sold on Credit (₹)" prefWidth="140"/>
-                    <TableColumn fx:id="ledgerCreditColumn" text="Paid (₹)" prefWidth="120"/>
-                    <TableColumn fx:id="ledgerBalanceColumn" text="Balance Owed (₹)" prefWidth="150"/>
-                </columns>
-            </TableView>
+            <TabPane VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
+                <Tab text="Financial Ledger">
+                    <VBox spacing="10">
+                        <padding><Insets top="10"/></padding>
+                        <Label text="Shows credit sales and payments received (what they owe)." style="-fx-text-fill: #666; -fx-font-size: 11px;"/>
+                        <TableView fx:id="ledgerTable" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="ledgerDateColumn" text="Date" prefWidth="140"/>
+                                <TableColumn fx:id="ledgerTypeColumn" text="Type" prefWidth="90"/>
+                                <TableColumn fx:id="ledgerRefColumn" text="Ref / Mode" prefWidth="120"/>
+                                <TableColumn fx:id="ledgerDebitColumn" text="Sold on Credit (₹)" prefWidth="140"/>
+                                <TableColumn fx:id="ledgerCreditColumn" text="Paid (₹)" prefWidth="120"/>
+                                <TableColumn fx:id="ledgerBalanceColumn" text="Balance Owed (₹)" prefWidth="150"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </Tab>
+                <Tab text="Purchase History">
+                    <VBox spacing="10">
+                        <padding><Insets top="10"/></padding>
+                        <Label text="Every item this customer has bought, any payment method - for gift ideas and repeat-buy patterns." style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+                        <Label fx:id="frequentItemsLabel" style="-fx-font-weight: bold; -fx-font-size: 12px;" wrapText="true"/>
+                        <TableView fx:id="purchaseHistoryTable" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="phDateColumn" text="Date" prefWidth="140"/>
+                                <TableColumn fx:id="phBillColumn" text="Bill No" prefWidth="80"/>
+                                <TableColumn fx:id="phProductColumn" text="Product" prefWidth="220"/>
+                                <TableColumn fx:id="phQtyColumn" text="Qty" prefWidth="60"/>
+                                <TableColumn fx:id="phPriceColumn" text="Price (₹)" prefWidth="100"/>
+                                <TableColumn fx:id="phTotalColumn" text="Total (₹)" prefWidth="100"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="No purchases yet" style="-fx-text-fill: #999;"/>
+                            </placeholder>
+                        </TableView>
+                    </VBox>
+                </Tab>
+            </TabPane>
         </VBox>
     </center>
 </BorderPane>

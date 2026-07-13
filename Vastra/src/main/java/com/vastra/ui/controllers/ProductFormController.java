@@ -25,6 +25,8 @@ public class ProductFormController {
     @FXML private TextField reorderField;
     @FXML private ComboBox<String> unitCombo;
     @FXML private TextArea descriptionField;
+    @FXML private ComboBox<String> sizeCombo;
+    @FXML private TextField colorField;
 
     @FXML
     public void initialize() {
@@ -35,8 +37,22 @@ public class ProductFormController {
         }
 
         // Set default values
-        if (gstField != null) gstField.setText("18");
+        if (gstField != null) {
+            String defaultGst = "18";
+            try {
+                defaultGst = com.vastra.dao.StoreSettingsDAO.get("default_gst_percent", "18");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            gstField.setText(defaultGst);
+        }
         if (reorderField != null) reorderField.setText("5");
+
+        if (sizeCombo != null) {
+            sizeCombo.setEditable(true);
+            sizeCombo.getItems().addAll("XS", "S", "M", "L", "XL", "XXL", "XXXL",
+                    "0-1Y", "1-2Y", "2-3Y", "3-4Y", "4-5Y", "6-7Y", "8-9Y", "10-11Y", "Free Size");
+        }
     }
 
     @FXML
@@ -78,6 +94,10 @@ public class ProductFormController {
             int gst = Integer.parseInt(gstField.getText().trim());
             int stock = Integer.parseInt(stockField.getText().trim());
             int reorderThreshold = Integer.parseInt(reorderField.getText().trim());
+            String hsnCode = hsnField != null ? hsnField.getText().trim() : "";
+            String description = descriptionField != null ? descriptionField.getText().trim() : "";
+            String size = sizeCombo != null && sizeCombo.getValue() != null ? sizeCombo.getValue().trim() : "";
+            String color = colorField != null ? colorField.getText().trim() : "";
 
             // Validation
             if (sellPrice <= 0) {
@@ -103,8 +123,9 @@ public class ProductFormController {
 
             // Insert product
             String productId = ProductDAO.insertProduct(
-                    name, variant, mrp, sellPrice, gst, stock,
-                    category, brand, sku
+                    name, variant, mrp, sellPrice, purchasePrice, gst, stock,
+                    category, brand, sku, hsnCode, reorderThreshold, description,
+                    size, color
             );
 
             // Generate barcode image for printing

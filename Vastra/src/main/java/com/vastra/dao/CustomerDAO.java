@@ -51,10 +51,14 @@ public class CustomerDAO {
      * Adds loyalty points. Accepts a fractional amount (e.g. 66.09) since
      * points are calculated as an exact 1% of the sale total, unrounded.
      */
-    public static void addPoints(String customerId, double points) throws SQLException {
+    /**
+     * Adds loyalty points as part of an existing transaction (e.g. from inside
+     * SalesDAO.completeSale()) - see the note on ProductDAO.decrementStock()
+     * for why this must reuse the caller's connection rather than open its own.
+     */
+    public static void addPoints(Connection conn, String customerId, double points) throws SQLException {
         String sql = "UPDATE customers SET points = points + ? WHERE id = ?";
-        try (Connection c = DBUtil.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setDouble(1, points);
             ps.setString(2, customerId);
             ps.executeUpdate();
@@ -125,6 +129,39 @@ public class CustomerDAO {
     }
 
     /** Full statement: every credit sale (debit) and payment (credit) in chronological order, with a running balance. */
+    /**
+     * Every item this customer has ever bought (any payment mode - unlike getLedger()
+     * which only covers CREDIT sales for the money owed). Most recent first.
+     */
+    public static List<com.vastra.model.PurchaseHistoryRow> getPurchaseHistory(String customerId) throws SQLException {
+        String sql = """
+            SELECT s.ts, s.invoice_number, si.product_name, si.product_variant,
+                   si.qty, si.unit_price_cents, si.line_total_cents
+            FROM sale_items si
+            JOIN sales s ON s.id = si.sale_id
+            WHERE s.customer_id = ?
+            ORDER BY s.ts DESC
+        """;
+        List<com.vastra.model.PurchaseHistoryRow> rows = new ArrayList<>();
+        try (Connection c = DBUtil.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                com.vastra.model.PurchaseHistoryRow row = new com.vastra.model.PurchaseHistoryRow();
+                row.setDate(rs.getString("ts"));
+                row.setBillNumber(rs.getString("invoice_number"));
+                row.setProductName(rs.getString("product_name"));
+                row.setVariant(rs.getString("product_variant"));
+                row.setQuantity(rs.getInt("qty"));
+                row.setUnitPriceCents(rs.getInt("unit_price_cents"));
+                row.setLineTotalCents(rs.getInt("line_total_cents"));
+                rows.add(row);
+            }
+        }
+        return rows;
+    }
+
     public static List<CustomerLedgerEntry> getLedger(String customerId) throws SQLException {
         List<Object[]> rawRows = new ArrayList<>(); // [date, type, refNo, description, amountCents]
 

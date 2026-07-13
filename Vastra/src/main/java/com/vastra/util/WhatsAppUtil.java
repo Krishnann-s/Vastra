@@ -40,22 +40,23 @@ public class WhatsAppUtil {
     private static String buildMessage(SaleReceiptData receipt) throws java.sql.SQLException{
         StringBuilder sb = new StringBuilder();
         String storeName = StoreSettingsDAO.get("store_name", "Vastra Store");
+        String currency = CurrencyUtil.symbol();
 
         sb.append("*").append(storeName).append("*\n");
         sb.append("Bill No: ").append(receipt.getBillNumber()).append("\n");
         sb.append("Date: ").append(receipt.getBillDate()).append(" ").append(receipt.getBillTime()).append("\n\n");
 
         for (CartItem item : receipt.getItems()) {
-            sb.append(String.format("%s x%d - Rs.%.2f%n",
-                    item.getProduct().getName(), item.getQuantity(), item.getLineTotal()));
+            sb.append(String.format("%s x%d - %s%.2f%n",
+                    item.getProduct().getName(), item.getQuantity(), currency, item.getLineTotal()));
         }
 
-        sb.append("\nSubtotal: Rs.").append(String.format("%.2f", receipt.getSubtotal())).append("\n");
-        sb.append("Tax: Rs.").append(String.format("%.2f", receipt.getTax())).append("\n");
+        sb.append("\nSubtotal: ").append(currency).append(String.format("%.2f", receipt.getSubtotal())).append("\n");
+        sb.append("Tax: ").append(currency).append(String.format("%.2f", receipt.getTax())).append("\n");
         if (receipt.getDiscount() > 0) {
-            sb.append("Discount: Rs.").append(String.format("%.2f", receipt.getDiscount())).append("\n");
+            sb.append("Discount: ").append(currency).append(String.format("%.2f", receipt.getDiscount())).append("\n");
         }
-        sb.append("*Total: Rs.").append(String.format("%.2f", receipt.getTotal())).append("*\n");
+        sb.append("*Total: ").append(currency).append(String.format("%.2f", receipt.getTotal())).append("*\n");
         sb.append("Payment: ").append(receipt.getPaymentMode()).append("\n\n");
         sb.append("Thank you for shopping with us! 🙏");
 
