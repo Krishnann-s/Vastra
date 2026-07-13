@@ -53,6 +53,7 @@ public class LabelPrintUtil {
     public static final double LABEL_WIDTH_MM = 35;
     public static final double LABEL_HEIGHT_MM = 22;
     public static final int LABELS_PER_ROW = 3;
+    public static final double QR_SIZE_MM = 10;
 
     // Most cheap thermal/label printers report 203 DPI. Change if yours differs.
     private static final double DPI = 203;
@@ -126,18 +127,14 @@ public class LabelPrintUtil {
         Text priceText = new Text("PRICE:" + String.format("%.2f", product.getSellPrice()));
         priceText.setFont(Font.font("Arial", FontWeight.BOLD, 7));
 
-        // Give the text column and the QR code an explicit width budget that actually
-        // sums to fit inside the label - previously the QR was sized off the label's
-        // HEIGHT only, with no check against how much width was left after the text,
-        // so on a narrow label the two together overflowed past the printed edge.
+        // QR is a fixed physical size (QR_SIZE_MM); clamp to availableWidth as a
+        // last-resort safety net so it can never push the text column negative.
         double horizontalPadding = 4;  // textBlock's own left+right Insets below
         double interGap = 3;           // spacing between text column and QR in the HBox
         double borderAllowance = 2;    // ~0.5px border each side, rounded up
         double availableWidth = wPx - horizontalPadding - interGap - borderAllowance;
 
-        double qrMaxByHeight = hPx * 0.85;
-        double qrMaxByWidth = availableWidth * 0.40; // QR gets at most 40% of the usable width
-        int qrSizePx = (int) Math.max(20, Math.min(qrMaxByHeight, qrMaxByWidth));
+        int qrSizePx = (int) Math.min(mmToPx(QR_SIZE_MM), availableWidth);
 
         double textBlockWidth = Math.max(20, availableWidth - qrSizePx);
         descText.setWrappingWidth(textBlockWidth);
