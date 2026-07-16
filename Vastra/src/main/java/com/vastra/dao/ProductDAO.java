@@ -16,6 +16,7 @@ public class ProductDAO {
      */
     public static String insertProduct(String prod_name, String variant,
                                        int mrp, int sellPrice, int purchasePrice, int gst, int stock,
+                                       int openingStock,
                                        String category, String brand, String sku,
                                        String hsnCode, int reorderThreshold, String description,
                                        String size, String color) throws Exception {
@@ -25,8 +26,9 @@ public class ProductDAO {
         String sql = """
             INSERT INTO products(id, name, variant, category, brand, barcode, sku,
                                mrp_cents, sell_price_cents, purchase_price_cents, gst_percent, stock,
-                               reorder_threshold, hsn_code, description, size, color, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+                               opening_stock, reorder_threshold, hsn_code, description, size, color,
+                               is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
         """;
 
         try (Connection c = DBUtil.getConnection();
@@ -43,45 +45,17 @@ public class ProductDAO {
             ps.setInt(10, purchasePrice);
             ps.setInt(11, gst);
             ps.setInt(12, stock);
-            ps.setInt(13, reorderThreshold);
-            ps.setString(14, hsnCode != null ? hsnCode : "");
-            ps.setString(15, description != null ? description : "");
-            ps.setString(16, (size == null || size.isBlank()) ? null : size.trim());
-            ps.setString(17, (color == null || color.isBlank()) ? null : color.trim());
+            ps.setInt(13, openingStock);
+            ps.setInt(14, reorderThreshold);
+            ps.setString(15, hsnCode != null ? hsnCode : "");
+            ps.setString(16, description != null ? description : "");
+            ps.setString(17, (size == null || size.isBlank()) ? null : size.trim());
+            ps.setString(18, (color == null || color.isBlank()) ? null : color.trim());
             ps.executeUpdate();
         }
 
         ActivityLogUtil.log(null, "CREATE", "PRODUCT", prod_id, prod_name + " added");
         return prod_id;
-    }
-
-    /** Distinct product names ("styles") that have at least one size or color set - for the Stock Matrix picker. */
-    public static List<String> getStyleNamesWithVariants() throws SQLException {
-        String sql = """
-            SELECT DISTINCT name FROM products
-            WHERE is_active = 1 AND (size IS NOT NULL OR color IS NOT NULL)
-            ORDER BY name
-        """;
-        List<String> names = new ArrayList<>();
-        try (Connection c = DBUtil.getConnection();
-             Statement s = c.createStatement();
-             ResultSet rs = s.executeQuery(sql)) {
-            while (rs.next()) names.add(rs.getString("name"));
-        }
-        return names;
-    }
-
-    /** All active variants (by size/color) of one style - the raw data behind the Stock Matrix grid. */
-    public static List<Product> getVariantsForStyle(String styleName) throws SQLException {
-        String sql = "SELECT * FROM products WHERE name = ? AND is_active = 1 ORDER BY size, color";
-        List<Product> results = new ArrayList<>();
-        try (Connection c = DBUtil.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, styleName);
-            ResultSet rs = ps.executeQuery();
-            while (rs.next()) results.add(extractProduct(rs));
-        }
-        return results;
     }
 
     /**
@@ -134,21 +108,59 @@ public class ProductDAO {
         return null;
     }
 
+    /** Filler words that describe search intent but never literally appear in stored fields. */
+    private static final java.util.Set<String> SEARCH_STOPWORDS = java.util.Set.of(
+            "size", "sz", "no", "no.", "number", "of", "in", "the", "a", "an", "for");
+
     /**
-     * Search products by name (for manual search)
+     * Free-text product search across everything a cashier might remember about
+     * an item - name, category (e.g. "Half Hand Jersey Tshirt"), brand, variant,
+     * size, color, SKU, and barcode - instead of requiring an exact SKU/barcode.
+     * The query is split into words and every word must appear <i>somewhere</i>
+     * in that combined text (in any order, any field), so "half hand jersey
+     * tshirt size 32" matches a product whose category is "Half Hand Jersey
+     * Tshirt" and whose size is "32", even though no single field contains the
+     * whole phrase.
      */
-    public static List<Product> searchByName(String name) throws SQLException {
-        String sql = "SELECT * FROM products WHERE name LIKE ? AND is_active = 1 ORDER BY name LIMIT 20";
+    public static List<Product> searchByName(String query) throws SQLException {
+        List<String> tokens = new ArrayList<>();
+        if (query != null) {
+            for (String word : query.trim().toLowerCase().split("\\s+")) {
+                if (!word.isEmpty() && !SEARCH_STOPWORDS.contains(word)) {
+                    tokens.add(word);
+                }
+            }
+        }
+        if (tokens.isEmpty()) {
+            return getAllProducts();
+        }
+
+        String combinedText = "(COALESCE(name,'') || ' ' || COALESCE(category,'') || ' ' || " +
+                "COALESCE(brand,'') || ' ' || COALESCE(variant,'') || ' ' || COALESCE(size,'') || ' ' || " +
+                "COALESCE(color,'') || ' ' || COALESCE(sku,'') || ' ' || COALESCE(barcode,''))";
+
+        StringBuilder sql = new StringBuilder("SELECT * FROM products WHERE is_active = 1");
+        for (int i = 0; i < tokens.size(); i++) {
+            sql.append(" AND ").append(combinedText).append(" LIKE ? ESCAPE '\\'");
+        }
+        sql.append(" ORDER BY name LIMIT 50");
+
         List<Product> products = new ArrayList<>();
         try (Connection c = DBUtil.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setString(1, "%" + name + "%");
+             PreparedStatement ps = c.prepareStatement(sql.toString())) {
+            for (int i = 0; i < tokens.size(); i++) {
+                ps.setString(i + 1, "%" + escapeLike(tokens.get(i)) + "%");
+            }
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 products.add(extractProduct(rs));
             }
         }
         return products;
+    }
+
+    private static String escapeLike(String s) {
+        return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     /**
@@ -283,11 +295,12 @@ public class ProductDAO {
      */
     public static void updateProduct(Product product) throws SQLException {
         String sql = """
-            UPDATE products SET 
-                name = ?, variant = ?, category = ?, brand = ?, 
+            UPDATE products SET
+                name = ?, variant = ?, category = ?, brand = ?,
                 barcode = ?, sku = ?, mrp_cents = ?, sell_price_cents = ?,
                 purchase_price_cents = ?, gst_percent = ?, hsn_code = ?,
-                stock = ?, reorder_threshold = ?, unit = ?, description = ?,
+                stock = ?, opening_stock = ?, reorder_threshold = ?, unit = ?, description = ?,
+                size = ?, color = ?,
                 updated_at = datetime('now')
             WHERE id = ?
         """;
@@ -306,10 +319,13 @@ public class ProductDAO {
             ps.setInt(10, product.getGstPercent());
             ps.setString(11, product.getHsnCode());
             ps.setInt(12, product.getStock());
-            ps.setInt(13, product.getReorderThreshold());
-            ps.setString(14, product.getUnit());
-            ps.setString(15, product.getDescription());
-            ps.setString(16, product.getId());
+            ps.setInt(13, product.getOpeningStock());
+            ps.setInt(14, product.getReorderThreshold());
+            ps.setString(15, product.getUnit());
+            ps.setString(16, product.getDescription());
+            ps.setString(17, (product.getSize() == null || product.getSize().isBlank()) ? null : product.getSize().trim());
+            ps.setString(18, (product.getColor() == null || product.getColor().isBlank()) ? null : product.getColor().trim());
+            ps.setString(19, product.getId());
             ps.executeUpdate();
         }
 
@@ -350,21 +366,47 @@ public class ProductDAO {
     }
 
     /**
-     * Generate unique barcode (13 digits EAN-13 style)
+     * Generate a short, human-readable product code (e.g. "P0001") instead of
+     * a random 13-digit number - built from a global, persisted, never-reused
+     * counter (see {@link #nextProductCodeSequence()}) so codes just keep
+     * counting up (P0001, P0002, ...) no matter how many days/purchases apart
+     * they're created, and a prefix configurable in Settings.
      */
     private static String generateBarcode() throws SQLException {
-        String barcode;
+        String prefix = StoreSettingsDAO.get("product_code_prefix", "P");
+        if (prefix == null || prefix.isBlank()) prefix = "P";
+        prefix = prefix.trim().toUpperCase();
+
+        String code;
         int attempts = 0;
         do {
-            // Generate 13 digit barcode starting with 890 (for internal use)
-            long timestamp = System.currentTimeMillis() % 10000000000L;
-            barcode = String.format("890%010d", timestamp);
+            int seq = nextProductCodeSequence();
+            code = prefix + String.format("%04d", seq);
             attempts++;
-            if (attempts > 100) {
-                throw new SQLException("Could not generate unique barcode");
+            if (attempts > 1000) {
+                throw new SQLException("Could not generate unique product code");
             }
-        } while (barcodeExists(barcode));
-        return barcode;
+        } while (barcodeExists(code));
+        return code;
+    }
+
+    /**
+     * Atomically reserves and returns the next number in the global product
+     * code sequence, persisted in store_settings so it survives restarts and
+     * never goes backward or repeats - e.g. add 100 products today (0001-0100),
+     * come back next week and the next one picked up is 0101, regardless of
+     * which brand/category it is.
+     */
+    private static synchronized int nextProductCodeSequence() throws SQLException {
+        String current = StoreSettingsDAO.get("next_product_code_seq", "1");
+        int next;
+        try {
+            next = Integer.parseInt(current.trim());
+        } catch (NumberFormatException e) {
+            next = 1;
+        }
+        StoreSettingsDAO.set("next_product_code_seq", String.valueOf(next + 1));
+        return next;
     }
 
     /**
@@ -397,6 +439,7 @@ public class ProductDAO {
         p.setHsnCode(hsnCode != null ? hsnCode : "");
 
         p.setStock(rs.getInt("stock"));
+        p.setOpeningStock(rs.getInt("opening_stock"));
         p.setReorderThreshold(rs.getInt("reorder_threshold"));
 
         String unit = rs.getString("unit");

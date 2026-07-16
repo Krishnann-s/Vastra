@@ -24,7 +24,9 @@ public class SettingsController {
     @FXML private CheckBox autoBackupEnabledCheckBox;
     @FXML private ComboBox<String> receiptPaperWidthCombo;
     @FXML private ComboBox<String> receiptPrinterCombo;
+    @FXML private ComboBox<String> labelPrinterCombo;
     @FXML private TextField defaultGstPercentField;
+    @FXML private TextField productCodePrefixField;
 
     @FXML
     public void initialize() {
@@ -46,6 +48,7 @@ public class SettingsController {
             receiptPaperWidthCombo.setItems(javafx.collections.FXCollections.observableArrayList("58mm", "80mm"));
             receiptPaperWidthCombo.setValue(StoreSettingsDAO.get("receipt_paper_width", "80mm"));
             defaultGstPercentField.setText(StoreSettingsDAO.get("default_gst_percent", "18"));
+            productCodePrefixField.setText(StoreSettingsDAO.get("product_code_prefix", "P"));
 
             javafx.collections.ObservableList<String> printerNames = javafx.collections.FXCollections.observableArrayList();
             printerNames.add("(Ask me each time)");
@@ -56,6 +59,12 @@ public class SettingsController {
             String savedPrinter = StoreSettingsDAO.get("receipt_printer_name", "");
             receiptPrinterCombo.setValue((savedPrinter == null || savedPrinter.isBlank())
                     ? "(Ask me each time)" : savedPrinter);
+
+            labelPrinterCombo.setItems(printerNames);
+            String savedLabelPrinter = StoreSettingsDAO.get("label_printer_name", "");
+            labelPrinterCombo.setValue((savedLabelPrinter == null || savedLabelPrinter.isBlank())
+                    ? "(Ask me each time)" : savedLabelPrinter);
+
             pointsPer100Field.setText(StoreSettingsDAO.get("points_per_100_rupees", "1"));
             minPointsRedemptionField.setText(StoreSettingsDAO.get("min_points_redemption", "100"));
         } catch (Exception e) {
@@ -80,6 +89,16 @@ public class SettingsController {
                 return;
             }
 
+            String codePrefix = productCodePrefixField.getText() == null ? "" : productCodePrefixField.getText().trim().toUpperCase();
+            if (codePrefix.isEmpty()) {
+                showError("Product Code Prefix cannot be empty");
+                return;
+            }
+            if (!codePrefix.matches("[A-Z0-9]{1,6}")) {
+                showError("Product Code Prefix must be 1-6 letters/numbers only (e.g. P, AZ, VB)");
+                return;
+            }
+
             StoreSettingsDAO.set("store_name", storeNameField.getText().trim());
             StoreSettingsDAO.set("store_address", storeAddressField.getText().trim());
             StoreSettingsDAO.set("store_phone", storePhoneField.getText().trim());
@@ -91,10 +110,15 @@ public class SettingsController {
             StoreSettingsDAO.set("exchange_policy", exchangePolicyField.getText().trim());
             StoreSettingsDAO.set("receipt_paper_width", receiptPaperWidthCombo.getValue());
             StoreSettingsDAO.set("default_gst_percent", String.valueOf(defaultGst));
+            StoreSettingsDAO.set("product_code_prefix", codePrefix);
 
             String chosenPrinter = receiptPrinterCombo.getValue();
             StoreSettingsDAO.set("receipt_printer_name",
                     (chosenPrinter == null || chosenPrinter.equals("(Ask me each time)")) ? "" : chosenPrinter);
+
+            String chosenLabelPrinter = labelPrinterCombo.getValue();
+            StoreSettingsDAO.set("label_printer_name",
+                    (chosenLabelPrinter == null || chosenLabelPrinter.equals("(Ask me each time)")) ? "" : chosenLabelPrinter);
 
             StoreSettingsDAO.set("low_stock_alert_enabled", lowStockAlertCheckBox.isSelected() ? "1" : "0");
             StoreSettingsDAO.set("auto_backup_enabled", autoBackupEnabledCheckBox.isSelected() ? "1" : "0");

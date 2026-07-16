@@ -68,6 +68,7 @@ public class DBUtil {
                      gst_percent INTEGER DEFAULT 0,
                      hsn_code TEXT,
                      stock INTEGER DEFAULT 0,
+                     opening_stock INTEGER DEFAULT 0,
                      reorder_threshold INTEGER DEFAULT 5,
                      unit TEXT DEFAULT 'PCS',
                      description TEXT,
@@ -393,6 +394,9 @@ Don''t bargain', datetime('now'));
             // them only if missing rather than assuming a fresh CREATE TABLE ran.
             ensureColumnExists(c, "products", "size", "TEXT");
             ensureColumnExists(c, "products", "color", "TEXT");
+            // opening_stock = quantity on hand that came in without a purchase bill/invoice
+            // (informational only - it is never added to or subtracted from `stock`).
+            ensureColumnExists(c, "products", "opening_stock", "INTEGER DEFAULT 0");
 
             seedDefaultAdminIfNeeded(c);
         }

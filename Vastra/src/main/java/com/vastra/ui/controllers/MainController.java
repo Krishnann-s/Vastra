@@ -521,18 +521,34 @@ public class MainController {
     }
 
     @FXML
-    public void onShowStockMatrix() {
+    public void onShowStockCheck() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/stock_matrix.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/stock_check.fxml"));
             Scene scene = new Scene(loader.load());
             Stage stage = new Stage();
-            stage.setTitle("Stock Matrix");
+            stage.setTitle("Check Stock (Scan)");
             IconUtil.applyAppIcon(stage);
             stage.setScene(scene);
             stage.show();
         } catch (Exception e) {
             e.printStackTrace();
-            showError("Error opening stock matrix: " + e.getMessage());
+            showError("Error opening stock check: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    public void onShowFullStock() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/vastra/ui/fxml/product_list.fxml"));
+            Scene scene = new Scene(loader.load());
+            Stage stage = new Stage();
+            stage.setTitle("Full Stock");
+            IconUtil.applyAppIcon(stage);
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Error opening full stock: " + e.getMessage());
         }
     }
 

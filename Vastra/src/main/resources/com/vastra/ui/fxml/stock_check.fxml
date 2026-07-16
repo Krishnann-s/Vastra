@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.vastra.ui.controllers.StockCheckController"
+            prefWidth="600" prefHeight="650">
+
+    <top>
+        <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;" spacing="10">
+            <Label text="Check Stock (Scan)" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+            <Label text="Scan the QR/barcode on a price tag, or type the code and press Enter."
+                   style="-fx-text-fill: white; -fx-font-size: 11px;"/>
+            <TextField fx:id="scanField" promptText="Scan or type product code" onAction="#onLookup"
+                       style="-fx-font-size: 14px;"/>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="15">
+            <padding><Insets top="20" right="20" bottom="10" left="20"/></padding>
+
+            <VBox spacing="6" alignment="CENTER" style="-fx-border-color: #ddd; -fx-border-radius: 6; -fx-padding: 20; -fx-background-color: white;">
+                <Label fx:id="nameLabel" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                <Label fx:id="detailsLabel" style="-fx-text-fill: #666;"/>
+                <Label text="STOCK" style="-fx-text-fill: #999; -fx-font-size: 11px;"/>
+                <Label fx:id="stockLabel" style="-fx-font-size: 48px; -fx-font-weight: bold;"/>
+                <Label fx:id="priceLabel" style="-fx-font-size: 14px;"/>
+                <Label fx:id="statusLabel" style="-fx-font-weight: bold;"/>
+            </VBox>
+
+            <Label text="Recent scans" style="-fx-font-weight: bold;"/>
+            <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="historyCodeColumn" text="Code" prefWidth="120"/>
+                    <TableColumn fx:id="historyNameColumn" text="Name" prefWidth="280"/>
+                    <TableColumn fx:id="historyStockColumn" text="Stock" prefWidth="80"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" style="-fx-padding: 10 15; -fx-background-color: #f5f5f5; -fx-border-color: #ddd; -fx-border-width: 1 0 0 0;">
+            <Button text="Close" onAction="#onClose"/>
+        </HBox>
+    </bottom>
+</BorderPane>

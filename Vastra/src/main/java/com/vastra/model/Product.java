@@ -14,6 +14,7 @@ public class Product {
     private int gstPercent;
     private String hsnCode;
     private int stock;
+    private int openingStock;
     private int reorderThreshold;
     private String unit;
     private String description;
@@ -63,6 +64,10 @@ public class Product {
 
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+
+    /** Quantity on hand that came in without a purchase bill/invoice - informational only, not part of {@link #stock}. */
+    public int getOpeningStock() { return openingStock; }
+    public void setOpeningStock(int openingStock) { this.openingStock = openingStock; }
 
     public int getReorderThreshold() { return reorderThreshold; }
     public void setReorderThreshold(int reorderThreshold) { this.reorderThreshold = reorderThreshold; }

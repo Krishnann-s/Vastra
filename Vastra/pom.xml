@@ -67,6 +67,16 @@
       <artifactId>poi-ooxml</artifactId>
       <version>5.2.3</version>
     </dependency>
+
+    <!-- JNA: used by RawPrinterHelper to send TSPL label commands straight to
+         the Windows print spooler (winspool.drv), bypassing GDI page layout
+         so the TSC printer's own gap sensor/positioning is authoritative
+         instead of driver-rasterized paper sizing. -->
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>5.14.0</version>
+    </dependency>
   </dependencies>
 
   <build>

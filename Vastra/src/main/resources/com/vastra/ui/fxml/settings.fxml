@@ -68,9 +68,18 @@
                         <TextField fx:id="defaultGstPercentField"/>
                     </VBox>
                 </HBox>
+                <Label text="Product Code Prefix"/>
+                <TextField fx:id="productCodePrefixField" prefWidth="100" promptText="e.g. P"/>
+                <Label text="When you leave Product Code blank while adding a product, it gets auto-numbered PREFIX0001, PREFIX0002, ... (e.g. P0001) - the counter keeps going up and is never reused, even across different days/purchases."
+                       style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
                 <Label text="Receipt Printer"/>
                 <ComboBox fx:id="receiptPrinterCombo" maxWidth="Infinity"/>
                 <Label text="Choose your thermal/receipt printer here so every sale prints straight to it - otherwise Windows' default printer is used, which may not be the one you want."
+                       style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
+
+                <Label text="Label Printer"/>
+                <ComboBox fx:id="labelPrinterCombo" maxWidth="Infinity"/>
+                <Label text="Your TSC label printer. Labels are sent to it as raw TSPL commands (not through the regular Windows print dialog), so pick the exact queue name here once."
                        style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
 
                 <Separator/>

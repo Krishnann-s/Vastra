@@ -9,9 +9,9 @@
 
     <top>
         <VBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
-            <Label text="Add New Product"
+            <Label fx:id="headerLabel" text="Add New Product"
                    style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"/>
-            <Label text="Fill in the product details and barcode will be generated"
+            <Label fx:id="subHeaderLabel" text="Fill in the product details and barcode will be generated"
                    style="-fx-text-fill: white; -fx-font-size: 12px;"/>
         </VBox>
     </top>
@@ -53,11 +53,11 @@
                     </GridPane>
                 </VBox>
 
-                <!-- Size & Color Section (for Stock Matrix) -->
+                <!-- Size & Color Section -->
                 <VBox spacing="10" style="-fx-border-color: #ddd; -fx-border-radius: 5; -fx-padding: 15; -fx-background-color: #EDE7F6;">
                     <Label text="SIZE &amp; COLOR" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
                     <Separator/>
-                    <Label text="Optional - fill these in (using the same product name for each size/color) to see this style in the Stock Matrix (Products menu)."
+                    <Label text="Optional - fill these in to make this product easy to find later by search (e.g. &quot;half hand jersey tshirt size 32&quot;) and to see it in Full Stock (Inventory menu)."
                            style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
                     <GridPane hgap="15" vgap="12">
                         <Label text="Size:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
@@ -135,7 +135,7 @@
                     <Separator/>
 
                     <GridPane hgap="15" vgap="12">
-                        <Label text="* Opening Stock:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <Label text="* Stock:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
                         <TextField fx:id="stockField"
                                    promptText="0"
                                    GridPane.rowIndex="0" GridPane.columnIndex="1"
@@ -152,7 +152,15 @@
                         <ComboBox fx:id="unitCombo"
                                   GridPane.rowIndex="1" GridPane.columnIndex="1"
                                   prefWidth="150"/>
+
+                        <Label text="Opening Stock:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="openingStockField"
+                                   promptText="0"
+                                   GridPane.rowIndex="2" GridPane.columnIndex="1"
+                                   prefWidth="150"/>
                     </GridPane>
+                    <Label text="Opening Stock = how many of the Stock above came in without a purchase bill/invoice. Optional, just for your own reference - it doesn't add to or change the Stock count."
+                           style="-fx-text-fill: #666; -fx-font-size: 11px;" wrapText="true"/>
                 </VBox>
 
                 <!-- Description Section -->

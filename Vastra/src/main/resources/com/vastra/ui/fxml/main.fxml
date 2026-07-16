@@ -35,8 +35,9 @@
                     <MenuItem text="Clear Customer" onAction="#onClearCustomer"/>
                 </Menu>
                 <Menu text="Inventory">
+                    <MenuItem text="Check Stock (Scan)" onAction="#onShowStockCheck"/>
                     <MenuItem text="Low Stock Alert" onAction="#onShowLowStock"/>
-                    <MenuItem text="Stock Matrix (Size/Color)" onAction="#onShowStockMatrix"/>
+                    <MenuItem text="Full Stock" onAction="#onShowFullStock"/>
                     <MenuItem fx:id="bulkImportMenuItem" text="Bulk Import" onAction="#onBulkImport"/>
                     <MenuItem text="Returns" onAction="#onShowReturns"/>
                 </Menu>
@@ -61,6 +62,9 @@
                 </Button>
                 <Button fx:id="printBarcodesToolbarBtn" text="🖨️" onAction="#onPrintBarcodes" styleClass="toolbar-icon-btn">
                     <tooltip><Tooltip text="Print Barcodes"/></tooltip>
+                </Button>
+                <Button text="🔍" onAction="#onShowStockCheck" styleClass="toolbar-icon-btn">
+                    <tooltip><Tooltip text="Check Stock (Scan)"/></tooltip>
                 </Button>
                 <Separator orientation="VERTICAL"/>
                 <Button text="👤" onAction="#onAddCustomer" styleClass="toolbar-icon-btn">

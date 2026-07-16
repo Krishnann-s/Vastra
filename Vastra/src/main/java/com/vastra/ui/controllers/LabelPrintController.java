@@ -16,7 +16,6 @@ import javafx.util.converter.IntegerStringConverter;
 
 import java.io.File;
 import java.util.List;
-import java.util.Optional;
 
 public class LabelPrintController {
 
@@ -128,19 +127,16 @@ public class LabelPrintController {
             showError("Add at least one product to the queue first");
             return;
         }
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-        confirm.setTitle("Print Labels");
         int totalLabels = queue.stream().mapToInt(LabelPrintItem::getQuantity).sum();
-        confirm.setHeaderText("Print " + totalLabels + " labels?");
-        Optional<ButtonType> result = confirm.showAndWait();
-        if (result.isEmpty() || result.get() != ButtonType.OK) return;
 
         String careNote = careNoteField != null ? careNoteField.getText() : null;
         boolean success = LabelPrintUtil.printLabels(queue, careNote, previewPane.getScene().getWindow());
         if (success) {
-            showInfo("Labels sent to printer successfully!");
+            statusLabel.setText("Printed " + totalLabels + " label(s).");
         } else {
-            showError("Printing failed or was cancelled. Check printer connection and paper setup.");
+            showError("Printing failed or was cancelled. Check that the TSC printer is powered on and " +
+                    "connected, and that it's selected under Settings > Label Printer (or picked correctly " +
+                    "in the printer dialog). See the console/log for the exact error.");
         }
     }
 

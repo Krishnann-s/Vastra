@@ -10,9 +10,10 @@ import com.vastra.model.Product;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.print.*;
+import javafx.print.Printer;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
@@ -26,54 +27,77 @@ import javafx.scene.text.Text;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * Generates and prints garment labels sized to match your existing label
- * roll: 35mm x 22mm, printed 3 across per row.
- *
- * IMPORTANT ONE-TIME SETUP:
- * JavaFX cannot invent a custom paper size on the fly - it can only pick from
- * paper sizes your printer driver already knows about. Before this will print
- * at the correct size, go into Windows > Printer Properties > Advanced (or
- * "Forms") for your label printer and create a custom paper size:
- *      Width  = 105mm  (3 x 35mm)
- *      Height = 22mm
- * Name it something like "VastraLabel-105x22". Once that exists, this class
- * will auto-detect and use it. If no matching paper is found, it falls back
- * to A4 so nothing crashes, but the label positions will be wrong until you
- * add the custom paper size.
+ * Generates 35mm x 22mm garment labels (3 across per row, matching a
+ * "105 x 21.5mm 3-up" die-cut label roll) and prints them on a TSC label
+ * printer.
+ * <p>
+ * Printing goes straight to the Windows print spooler as raw TSPL commands
+ * (see {@link RawPrinterHelper}), NOT through javafx.print.PrinterJob/GDI.
+ * Earlier attempts routed the rendered label through the standard Windows
+ * printer driver pipeline (custom Paper, matched Paper, pinned driver
+ * default + HARDWARE_MINIMUM margins) and all of them were still at the
+ * mercy of the driver re-rendering/re-paginating each "page" - which is
+ * exactly what caused the misalignment, wrong orientation, and wasted
+ * blank labels between rows. Exporting to PNG and printing that file
+ * worked because a plain image viewer prints one flat image at 100% scale
+ * with no per-page re-layout. Raw TSPL reproduces that same "one flat
+ * image, exact scale" behaviour on the real printer: each row is
+ * snapshotted at the printer's native 203 DPI (identical pixels to the PNG
+ * export) and sent as a TSPL BITMAP inside a label sized with SIZE/GAP, so
+ * the printer's own gap sensor - not a GDI page layout - decides where one
+ * physical label ends and the next begins.
  */
 public class LabelPrintUtil {
 
     public static final double LABEL_WIDTH_MM = 35;
-    public static final double LABEL_HEIGHT_MM = 22;
+    public static final double LABEL_HEIGHT_MM = 21.5;
     public static final int LABELS_PER_ROW = 3;
-    public static final double QR_SIZE_MM = 10;
 
-    // Most cheap thermal/label printers report 203 DPI. Change if yours differs.
-    private static final double DPI = 203;
+    public static final double QR_SIZE_MM = 12;
+
+    /** Matches the printer's native resolution (TTP-224/244 Pro are both 203 dpi). */
+    private static final double PRINT_DPI = 203.0;
+
+    // -------------------- TSC/TSPL tuning knobs --------------------
+    // These are the only things you should ever need to touch to match your
+    // physical label stock/printer - everything else is computed.
+
+    /** Physical gap between rows (the die-cut line running across all 3 labels), in mm. */
+    private static final double GAP_MM = 2.0;
+    /** 0 = normal feed direction, 1 = reversed. Flip if labels print upside-down. */
+    private static final int PRINT_DIRECTION = 0;
+    /** Print speed, inches/sec (lower = crisper). Lower this first if print looks smeared. */
+    private static final int PRINT_SPEED = 4;
+    /** Heat/darkness, 0-15. Raise if print looks too light, lower if labels curl/over-ink. */
+    private static final int PRINT_DENSITY = 8;
+    /** Flip to true only if a test print comes out inverted (black label, white text/QR). */
+    private static final boolean INVERT_BITMAP = false;
 
     private static final String STORE_NAME = "CHENNAI FAASHIONS";
 
     // -------------------- unit conversion --------------------
 
-    private static double mmToPx(double mm) {
-        return (mm / 25.4) * DPI;
-    }
-
     private static double mmToPoints(double mm) {
-        return (mm / 25.4) * 72.0; // JavaFX Paper dimensions are in points (1/72 inch)
+        return (mm / 25.4) * 72.0;
     }
 
     // -------------------- QR generation --------------------
 
-    private static Image generateQrImage(String data, int sizePx) {
+    private static Image generateQrImage(String data, double sizeMm) {
         try {
+            int sizePx = (int) ((sizeMm / 25.4) * PRINT_DPI);
+
             Map<EncodeHintType, Object> hints = new HashMap<>();
             hints.put(EncodeHintType.MARGIN, 0);
             BitMatrix matrix = new MultiFormatWriter()
@@ -88,79 +112,70 @@ public class LabelPrintUtil {
 
     // -------------------- label layout --------------------
 
-    /**
-     * Builds a single 35mm x 22mm label node matching your printed sample:
-     * store name, brand + cloth name, size, item code, price, QR code.
-     *
-     * @param careNoteText optional rotated text along the left edge (e.g.
-     *                     wash-care instructions). Pass null/empty to skip it.
-     */
     public static VBox buildSingleLabel(Product product, String careNoteText) {
-        double wPx = mmToPx(LABEL_WIDTH_MM);
-        double hPx = mmToPx(LABEL_HEIGHT_MM);
+        double wPoints = mmToPoints(LABEL_WIDTH_MM);
+        double hPoints = mmToPoints(LABEL_HEIGHT_MM);
 
         VBox root = new VBox();
-        root.setMinSize(wPx, hPx);
-        root.setPrefSize(wPx, hPx);
-        root.setMaxSize(wPx, hPx);
-        root.setStyle("-fx-border-color: black; -fx-border-width: 0.5;");
-        // Safety net: nothing drawn inside can ever visually spill past the label's own
-        // edge, even if a very long product name or an edge-case size pushes past budget.
-        root.setClip(new javafx.scene.shape.Rectangle(wPx, hPx));
+        root.setMinSize(wPoints, hPoints);
+        root.setPrefSize(wPoints, hPoints);
+        root.setMaxSize(wPoints, hPoints);
+        root.setStyle("-fx-background-color: white;");
+        root.setClip(new javafx.scene.shape.Rectangle(wPoints, hPoints));
+
+        double horizontalPadding = 14;
+        double interGap = 2;
+        double availableWidthPoints = wPoints - horizontalPadding - interGap;
+
+        double qrSizePoints = mmToPoints(QR_SIZE_MM);
+        double textBlockWidth = availableWidthPoints - qrSizePoints;
 
         Text brand = new Text(STORE_NAME);
-        brand.setFont(Font.font("Arial", FontWeight.BOLD, 6.5));
+        brand.setFont(Font.font("Arial", FontWeight.BOLD, 6));
+        brand.setWrappingWidth(textBlockWidth);
 
         String desc = (product.getBrand() != null && !product.getBrand().isEmpty()
                 ? product.getBrand() + " " : "") + product.getName();
         Text descText = new Text(desc.toUpperCase());
-        descText.setFont(Font.font("Arial", FontWeight.BOLD, 7));
+        descText.setFont(Font.font("Arial", FontWeight.BOLD, 6));
+        descText.setWrappingWidth(textBlockWidth);
 
         Text sizeText = new Text("SIZE : " + (product.getVariant() != null ? product.getVariant() : "-"));
-        sizeText.setFont(Font.font("Arial", 7));
+        sizeText.setFont(Font.font("Arial", 6.5));
+        sizeText.setWrappingWidth(textBlockWidth);
 
         String itemCode = (product.getSku() != null && !product.getSku().isEmpty())
                 ? product.getSku() : product.getBarcode();
         Text codeText = new Text(itemCode);
-        codeText.setFont(Font.font("Arial", 7));
+        codeText.setFont(Font.font("Arial", 6.5));
+        codeText.setWrappingWidth(textBlockWidth);
 
         Text priceText = new Text("PRICE:" + String.format("%.2f", product.getSellPrice()));
-        priceText.setFont(Font.font("Arial", FontWeight.BOLD, 7));
-
-        // QR is a fixed physical size (QR_SIZE_MM); clamp to availableWidth as a
-        // last-resort safety net so it can never push the text column negative.
-        double horizontalPadding = 4;  // textBlock's own left+right Insets below
-        double interGap = 3;           // spacing between text column and QR in the HBox
-        double borderAllowance = 2;    // ~0.5px border each side, rounded up
-        double availableWidth = wPx - horizontalPadding - interGap - borderAllowance;
-
-        int qrSizePx = (int) Math.min(mmToPx(QR_SIZE_MM), availableWidth);
-
-        double textBlockWidth = Math.max(20, availableWidth - qrSizePx);
-        descText.setWrappingWidth(textBlockWidth);
+        priceText.setFont(Font.font("Arial", FontWeight.BOLD, 6.5));
+        priceText.setWrappingWidth(textBlockWidth);
 
         VBox textBlock = new VBox(1, brand, descText, sizeText, codeText, priceText);
-        textBlock.setPadding(new Insets(2, 2, 2, 2));
-        textBlock.setAlignment(Pos.TOP_LEFT);
-        textBlock.setMinWidth(textBlockWidth);
-        textBlock.setPrefWidth(textBlockWidth);
-        textBlock.setMaxWidth(textBlockWidth);
 
-        Image qrImage = generateQrImage(itemCode != null ? itemCode : product.getId(), qrSizePx);
+        textBlock.setPadding(new Insets(2, 0, 7, 12));
+        textBlock.setAlignment(Pos.CENTER_LEFT);
+        textBlock.setMaxWidth(textBlockWidth);
+        textBlock.setPrefWidth(textBlockWidth);
+
+        Image qrImage = generateQrImage(itemCode != null ? itemCode : product.getId(), QR_SIZE_MM);
         ImageView qrView = new ImageView(qrImage);
-        qrView.setFitWidth(qrSizePx);
-        qrView.setFitHeight(qrSizePx);
+        qrView.setFitWidth(qrSizePoints);
+        qrView.setFitHeight(qrSizePoints);
 
         HBox body = new HBox(interGap, textBlock, qrView);
         body.setAlignment(Pos.CENTER_LEFT);
 
         if (careNoteText != null && !careNoteText.isBlank()) {
             Text care = new Text(careNoteText.toUpperCase());
-            care.setFont(Font.font("Arial", 5));
+            care.setFont(Font.font("Arial", 4.5));
             care.setRotate(-90);
             VBox careHolder = new VBox(care);
             careHolder.setAlignment(Pos.CENTER);
-            careHolder.setPrefWidth(mmToPx(3));
+            careHolder.setPrefWidth(mmToPoints(3));
             HBox withCare = new HBox(careHolder, body);
             withCare.setAlignment(Pos.CENTER_LEFT);
             root.getChildren().add(withCare);
@@ -173,15 +188,23 @@ public class LabelPrintUtil {
 
     private static Region blankLabelSlot() {
         Region r = new Region();
-        r.setMinSize(mmToPx(LABEL_WIDTH_MM), mmToPx(LABEL_HEIGHT_MM));
-        r.setPrefSize(mmToPx(LABEL_WIDTH_MM), mmToPx(LABEL_HEIGHT_MM));
-        r.setMaxSize(mmToPx(LABEL_WIDTH_MM), mmToPx(LABEL_HEIGHT_MM));
+        double w = mmToPoints(LABEL_WIDTH_MM);
+        double h = mmToPoints(LABEL_HEIGHT_MM);
+        r.setMinSize(w, h);
+        r.setPrefSize(w, h);
+        r.setMaxSize(w, h);
         return r;
     }
 
     private static HBox buildRow(List<Product> rowProducts, String careNoteText) {
         HBox row = new HBox(0);
         row.setAlignment(Pos.CENTER_LEFT);
+
+        double totalWidth = mmToPoints(LABEL_WIDTH_MM * LABELS_PER_ROW);
+        row.setMinWidth(totalWidth);
+        row.setPrefWidth(totalWidth);
+        row.setMaxWidth(totalWidth);
+
         for (Product p : rowProducts) {
             row.getChildren().add(buildSingleLabel(p, careNoteText));
         }
@@ -191,7 +214,6 @@ public class LabelPrintUtil {
         return row;
     }
 
-    /** Expands the queue (product + quantity) into one flat list, one entry per physical label. */
     private static List<Product> flatten(List<LabelPrintItem> items) {
         List<Product> flat = new ArrayList<>();
         for (LabelPrintItem item : items) {
@@ -210,7 +232,6 @@ public class LabelPrintUtil {
         return rows;
     }
 
-    /** Builds a full on-screen preview (all rows stacked) - use this in a ScrollPane before printing. */
     public static VBox buildPreviewSheet(List<LabelPrintItem> items, String careNoteText) {
         VBox sheet = new VBox(2);
         for (List<Product> row : chunkIntoRows(flatten(items))) {
@@ -219,24 +240,16 @@ public class LabelPrintUtil {
         return sheet;
     }
 
-    // -------------------- test without a physical printer --------------------
-
-    /**
-     * Renders the given label sheet to a PNG file at the printer's exact DPI
-     * (203) so you can inspect or print-test the layout without the TSC
-     * printer connected. Open the PNG at 100% zoom to check text/QR fit, or
-     * print it on any regular printer at "actual size" (not "fit to page")
-     * and hold it against a real label to check scale.
-     */
     public static boolean exportPreviewAsPng(List<LabelPrintItem> items, String careNoteText, File outputFile) {
         try {
             VBox sheet = buildPreviewSheet(items, careNoteText);
-            new Scene(sheet); // attaching to a scene forces a layout pass before snapshot
+            new Scene(sheet);
             sheet.applyCss();
             sheet.layout();
 
             SnapshotParameters params = new SnapshotParameters();
             params.setFill(Color.WHITE);
+            params.setTransform(javafx.scene.transform.Transform.scale(PRINT_DPI / 72.0, PRINT_DPI / 72.0));
             WritableImage snapshot = sheet.snapshot(params, null);
 
             BufferedImage bufferedImage = SwingFXUtils.fromFXImage(snapshot, null);
@@ -247,83 +260,146 @@ public class LabelPrintUtil {
         }
     }
 
-    // -------------------- paper size detection --------------------
-
-    private static Paper findBestMatchingPaper(Printer printer, double wantedWidthMm, double wantedHeightMm) {
-        double wantedWidthPt = mmToPoints(wantedWidthMm);
-        double wantedHeightPt = mmToPoints(wantedHeightMm);
-        double tolerancePt = mmToPoints(3); // 3mm tolerance
-
-        Paper best = null;
-        double bestDiff = Double.MAX_VALUE;
-
-        for (Paper p : printer.getPrinterAttributes().getSupportedPapers()) {
-            double diff = Math.abs(p.getWidth() - wantedWidthPt) + Math.abs(p.getHeight() - wantedHeightPt);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                best = p;
-            }
-        }
-
-        if (best != null && bestDiff <= tolerancePt * 2) {
-            return best;
-        }
-        return null; // no acceptable match
-    }
-
-    // -------------------- printing --------------------
+    // -------------------- raw TSPL printing --------------------
 
     /**
-     * Prints the queued labels, one row (3 labels) per physical page/feed.
-     * Returns true if every row printed successfully.
-     *
-     * @param careNoteText optional wash-care text rotated on the left edge of each label, or null.
-     * @param ownerWindow  the screen this was called from, so the printer-selection dialog
-     *                     appears attached to it. Pass null if unavailable.
+     * Renders one row (up to 3 labels) exactly like {@link #exportPreviewAsPng},
+     * then packs it into a TSPL CLS/BITMAP/PRINT sequence for one physical label.
+     */
+    private static byte[] buildRowTsplCommand(List<Product> rowProducts, String careNoteText) throws Exception {
+        HBox rowNode = buildRow(rowProducts, careNoteText);
+        new Scene(rowNode);
+        rowNode.applyCss();
+        rowNode.layout();
+
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.WHITE);
+        params.setTransform(javafx.scene.transform.Transform.scale(PRINT_DPI / 72.0, PRINT_DPI / 72.0));
+        WritableImage snap = rowNode.snapshot(params, null);
+
+        BufferedImage bufferedImage = SwingFXUtils.fromFXImage(snap, null);
+        int widthDots = bufferedImage.getWidth();
+        int heightDots = bufferedImage.getHeight();
+        int widthBytes = (widthDots + 7) / 8;
+        byte[] bitmapData = packMonochromeBitmap(bufferedImage, widthBytes);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        writeAscii(out, "CLS\r\n");
+        writeAscii(out, "BITMAP 0,0," + widthBytes + "," + heightDots + ",0,");
+        out.write(bitmapData);
+        writeAscii(out, "\r\n");
+        writeAscii(out, "PRINT 1,1\r\n");
+        return out.toByteArray();
+    }
+
+    /**
+     * Packs an image into TSPL's 1-bit-per-pixel BITMAP format: MSB-first,
+     * row-major, one bit per dot, 1 = print (black). Same convention ZPL/EPL
+     * raster commands use.
+     */
+    private static byte[] packMonochromeBitmap(BufferedImage img, int widthBytes) {
+        int width = img.getWidth();
+        int height = img.getHeight();
+        byte[] data = new byte[widthBytes * height];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int argb = img.getRGB(x, y);
+                int r = (argb >> 16) & 0xFF;
+                int g = (argb >> 8) & 0xFF;
+                int b = argb & 0xFF;
+                int luminance = (r * 299 + g * 587 + b * 114) / 1000;
+                boolean ink = luminance < 128;
+                if (INVERT_BITMAP) ink = !ink;
+                if (ink) {
+                    int byteIndex = y * widthBytes + (x / 8);
+                    int bitIndex = 7 - (x % 8);
+                    data[byteIndex] |= (byte) (1 << bitIndex);
+                }
+            }
+        }
+        return data;
+    }
+
+    private static void writeAscii(ByteArrayOutputStream out, String s) {
+        out.write(s.getBytes(StandardCharsets.US_ASCII), 0, s.length());
+    }
+
+    private static String mm(double value) {
+        return String.format(Locale.US, "%.2f mm", value);
+    }
+
+    /**
+     * Prints the queued labels, one TSPL label (one row of up to 3) per
+     * physical feed, sent as a single raw job to the configured/selected
+     * TSC printer. Returns true if the whole batch was written successfully.
      */
     public static boolean printLabels(List<LabelPrintItem> items, String careNoteText, javafx.stage.Window ownerWindow) {
-        PrinterJob job = PrinterJob.createPrinterJob();
-        if (job == null) {
-            System.err.println("No printer available");
-            return false;
-        }
+        if (items == null || items.isEmpty()) return false;
 
-        // Without this, JavaFX silently prints to whichever printer Windows currently has
-        // set as the default (often "Microsoft Print to PDF" on a machine where a label/
-        // receipt printer was just plugged in but never set as default) - showing this
-        // dialog lets the user pick the actual TSC/thermal printer every time instead.
-        boolean proceed = job.showPrintDialog(ownerWindow);
-        if (!proceed) {
-            return false; // user cancelled the dialog
-        }
-
-        Printer printer = job.getPrinter();
-        Paper matchedPaper = findBestMatchingPaper(printer,
-                LABEL_WIDTH_MM * LABELS_PER_ROW, LABEL_HEIGHT_MM);
-
-        Paper paperToUse = matchedPaper != null ? matchedPaper : Paper.A4;
-        if (matchedPaper == null) {
-            System.err.println("WARNING: No custom label paper found on printer '" + printer.getName() +
-                    "'. Falling back to A4 - labels will NOT be positioned correctly. " +
-                    "Add a custom paper size of 105mm x 22mm in your printer driver settings.");
-        }
-
-        PageLayout layout = printer.createPageLayout(paperToUse, PageOrientation.PORTRAIT, Printer.MarginType.HARDWARE_MINIMUM);
-        job.getJobSettings().setPageLayout(layout);
+        String printerName = resolveLabelPrinterName(ownerWindow);
+        if (printerName == null) return false;
 
         List<List<Product>> rows = chunkIntoRows(flatten(items));
-        boolean allOk = true;
-        for (List<Product> row : rows) {
-            HBox rowNode = buildRow(row, careNoteText);
-            boolean printed = job.printPage(rowNode);
-            allOk = allOk && printed;
+        if (rows.isEmpty()) return false;
+
+        try {
+            ByteArrayOutputStream job = new ByteArrayOutputStream();
+            writeAscii(job, "SIZE " + mm(LABEL_WIDTH_MM * LABELS_PER_ROW) + "," + mm(LABEL_HEIGHT_MM) + "\r\n");
+            writeAscii(job, "GAP " + mm(GAP_MM) + ",0 mm\r\n");
+            writeAscii(job, "DIRECTION " + PRINT_DIRECTION + "\r\n");
+            writeAscii(job, "SPEED " + PRINT_SPEED + "\r\n");
+            writeAscii(job, "DENSITY " + PRINT_DENSITY + "\r\n");
+
+            for (List<Product> row : rows) {
+                job.write(buildRowTsplCommand(row, careNoteText));
+            }
+
+            RawPrinterHelper.sendBytesToPrinter(printerName, job.toByteArray());
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * The printer chosen in Settings > Billing > Label Printer, if set and
+     * still connected; otherwise prompts with a picker (mirrors
+     * ThermalPrinterUtil's receipt-printer resolution).
+     */
+    private static String resolveLabelPrinterName(javafx.stage.Window ownerWindow) {
+        List<String> names = new ArrayList<>();
+        for (Printer p : Printer.getAllPrinters()) {
+            names.add(p.getName());
+        }
+        if (names.isEmpty()) {
+            System.err.println("No printers installed on this system.");
+            return null;
         }
 
-        if (allOk) {
-            job.endJob();
-        } else {
-            job.cancelJob();
+        try {
+            String saved = com.vastra.dao.StoreSettingsDAO.get("label_printer_name", "");
+            if (saved != null && !saved.isBlank() && names.contains(saved)) {
+                return saved;
+            }
+            if (saved != null && !saved.isBlank()) {
+                System.err.println("Configured label printer '" + saved +
+                        "' isn't currently available (unplugged/off?) - falling back to a printer picker.");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return allOk;
+
+        Printer defaultPrinter = Printer.getDefaultPrinter();
+        String defaultChoice = (defaultPrinter != null && names.contains(defaultPrinter.getName()))
+                ? defaultPrinter.getName() : names.get(0);
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(defaultChoice, names);
+        dialog.setTitle("Select Label Printer");
+        dialog.setHeaderText("Choose the TSC label printer to print to");
+        dialog.setContentText("Printer:");
+        if (ownerWindow != null) dialog.initOwner(ownerWindow);
+        Optional<String> result = dialog.showAndWait();
+        return result.orElse(null);
     }
 }
